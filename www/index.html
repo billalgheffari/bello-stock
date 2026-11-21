@@ -719,8 +719,9 @@ var ACTS = {
   },
   printReceipt: function (b) {
     var inv = invById(+b.dataset.id); if (!inv) return;
-    if (window.cordova && cordova.plugins && cordova.plugins.printer) {
-      cordova.plugins.printer.print(receiptPrintHtml(inv), { name: 'فاتورة-' + inv.number });
+    var P = window.Capacitor && Capacitor.Plugins && (Capacitor.Plugins.Printer || Capacitor.Plugins.CapacitorPrinter);
+    if (P && P.printHtml) {
+      P.printHtml({ html: receiptPrintHtml(inv), name: 'فاتورة-' + inv.number }).catch(function () { toast('تعذّرت الطباعة، جرّب المشاركة بدل ذلك'); });
       return;
     }
     var text = receiptText(inv);

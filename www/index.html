@@ -366,6 +366,18 @@ window.addEventListener('popstate', function () {
   if (!w.hidden) { w.hidden = true; return; }
   if (ui.tab !== 'home') { ui.tab = 'home'; render(); window.scrollTo(0, 0); }
 });
+/* the phone's hardware back key does NOT reuse the browser history above unless we take it over
+   ourselves: register with the native App plugin so one press steps back inside the app, and only
+   exits from the home screen. */
+function handleHardwareBack() {
+  var w = document.getElementById('sheetWrap');
+  if (!w.hidden) { w.hidden = true; return; }
+  if (ui.tab !== 'home') { ui.tab = 'home'; render(); window.scrollTo(0, 0); return; }
+  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) Capacitor.Plugins.App.exitApp();
+}
+if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) {
+  Capacitor.Plugins.App.addListener('backButton', handleHardwareBack);
+}
 
 function renderHeader() {
   var h = document.getElementById('header');
@@ -453,6 +465,17 @@ function receiptText(inv) {
     '\n--------------------\n' + lines + '\n--------------------\nالمجموع: ' + fmt(inv.total) + '\nالدفع: ' + METHODS[inv.method] +
     (inv.method === 'credit' ? '\nالمدفوع: ' + fmt(inv.paid) + '\nالمتبقي: ' + fmt(inv.total - inv.paid) : '') + '\nشكرًا لزيارتكم';
 }
+function receiptPrintHtml(inv) {
+  var c = inv.customerId ? cust(inv.customerId) : null;
+  var row = function (a, b2) { return '<div style="display:flex;justify-content:space-between;gap:8px"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
+  return '<div dir="rtl" style="font-family:monospace;width:280px;margin:0 auto;font-size:13px">' +
+    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>فاتورة رقم ' + inv.number + (c ? '<br>العميل: ' + esc(c.name) : '') + '</div><hr>' +
+    inv.lines.map(function (l) { return row(esc(l.name) + ' × ' + qtyTxt(l.qty), fmt(l.total)); }).join('') + '<hr>' +
+    (inv.tax ? row('قبل الضريبة', fmt(inv.subtotal)) + row('الضريبة', fmt(inv.tax)) : '') +
+    '<b>' + row('المجموع', fmt(inv.total)) + '</b>' + row('الدفع', METHODS[inv.method]) +
+    (inv.method === 'credit' ? row('المدفوع', fmt(inv.paid)) + row('المتبقي', fmt(inv.total - inv.paid)) : '') +
+    '<hr><div style="text-align:center">شكرًا لزيارتكم</div></div>';
+}
 function showReceipt(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var h = '<div class="paper" dir="rtl"><div class="c"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>فاتورة رقم <span class="num">' + inv.number + '</span>' + (c ? '<br>العميل: ' + esc(c.name) : '') + '</div><hr>' +
@@ -461,8 +484,8 @@ function showReceipt(inv) {
     '<div class="l"><b>المجموع</b><b>' + m(inv.total) + '</b></div><div class="l"><span>الدفع</span><span>' + METHODS[inv.method] + '</span></div>' +
     (inv.method === 'credit' ? '<div class="l"><span>المدفوع</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>المتبقي على العميل</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
     '<hr><div class="c">شكرًا لزيارتكم</div></div>' +
-    '<div class="note">هذا عرض للإيصال على الشاشة فقط. الطباعة المباشرة على طابعة حرارية بالبلوتوث لم تُضف بعد. يمكنك الآن إرسال الإيصال كنص إلى أي تطبيق طباعة بلوتوث مثبّت عندك (مثل RawBT) أو عبر واتساب.</div>' +
-    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="shareReceipt" data-id="' + inv.id + '">مشاركة / طباعة الإيصال</button><button type="button" class="btn primary" data-act="closeSheet">بيع جديد</button></div>';
+    '<div class="note">زر "طباعة" يفتح قائمة الطباعة الحقيقية في الهاتف. إذا كان عندك تطبيق RawBT (مجاني، لطابعات البلوتوث الحرارية) مثبّتًا ومُقرَّنًا بالطابعة، يطبع مباشرة عليها من هذه القائمة.</div>' +
+    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="printReceipt" data-id="' + inv.id + '">🖶 طباعة</button><button type="button" class="btn primary" data-act="closeSheet">بيع جديد</button></div>';
   openSheet('تم حفظ البيع', h);
 }
 
@@ -694,10 +717,14 @@ var ACTS = {
     var show = function () { openSheet('كشف الحساب', '<textarea id="st" rows="10" readonly>' + esc(text) + '</textarea><div class="note">انسخ النص وأرسله عبر واتساب.</div>'); document.getElementById('st').select(); };
     try { navigator.clipboard.writeText(text).then(function () { toast('تم نسخ كشف الحساب'); }, show); } catch (e) { show(); }
   },
-  shareReceipt: function (b) {
+  printReceipt: function (b) {
     var inv = invById(+b.dataset.id); if (!inv) return;
+    if (window.cordova && cordova.plugins && cordova.plugins.printer) {
+      cordova.plugins.printer.print(receiptPrintHtml(inv), { name: 'فاتورة-' + inv.number });
+      return;
+    }
     var text = receiptText(inv);
-    var show = function () { openSheet('نص الإيصال', '<textarea id="rt" rows="10" readonly>' + esc(text) + '</textarea><div class="note">انسخ النص وأرسله إلى تطبيق الطباعة أو واتساب.</div>'); document.getElementById('rt').select(); };
+    var show = function () { openSheet('نص الإيصال', '<textarea id="rt" rows="10" readonly>' + esc(text) + '</textarea><div class="note">لم يُعثر على خدمة طباعة على هذا الجهاز (هذا طبيعي في معاينة المتصفح). انسخ النص وأرسله إلى تطبيق الطباعة أو واتساب.</div>'); document.getElementById('rt').select(); };
     if (navigator.share) { navigator.share({ text: text }).catch(function () {}); }
     else { try { navigator.clipboard.writeText(text).then(function () { toast('تم نسخ نص الإيصال'); }, show); } catch (e) { show(); } }
   },

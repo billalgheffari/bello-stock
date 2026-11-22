@@ -162,7 +162,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.1';
+var APP_VERSION = '1.2.2';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -190,6 +190,9 @@ var STR = {
   'settings.title': { ar: 'الإعدادات', fr: 'Paramètres', en: 'Settings' },
   'settings.shop': { ar: 'اسم المحل (يظهر في الإيصال)', fr: 'Nom du magasin (affiché sur le reçu)', en: 'Shop name (shown on the receipt)' },
   'settings.lang': { ar: 'اللغة', fr: 'Langue', en: 'Language' },
+  'settings.country': { ar: 'الدولة', fr: 'Pays', en: 'Country' },
+  'settings.currency': { ar: 'العملة', fr: 'Devise', en: 'Currency' },
+  'settings.currencyNote': { ar: 'تتغيّر تلقائيًا حسب الدولة، ويمكنك تبديلها يدويًا.', fr: 'Change automatiquement selon le pays ; vous pouvez la modifier manuellement.', en: 'Changes automatically with the country; you can override it manually.' },
   'settings.version': { ar: 'الإصدار', fr: 'Version', en: 'Version' },
   'titles.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
   'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits', en: 'Stock and products' },
@@ -361,7 +364,105 @@ var STR = {
   'cat.other': { ar: 'أخرى', fr: 'Autre', en: 'Other' }
 };
 function t(key) { var e = STR[key]; return (e && (e[lang()] || e.ar)) || key; }
-function curSuffix() { return lang() === 'ar' ? 'د.ج' : 'DA'; }
+var CURRENCIES = {
+  DZD: 'د.ج', MAD: 'د.م.', TND: 'د.ت', LYD: 'د.ل', EGP: 'ج.م', MRU: 'أ.م',
+  SAR: 'ر.س', AED: 'د.إ', QAR: 'ر.ق', KWD: 'د.ك', BHD: 'د.ب', OMR: 'ر.ع',
+  JOD: 'د.أ', LBP: 'ل.ل', IQD: 'د.ع', SYP: 'ل.س', YER: 'ر.ي', SDG: 'ج.س',
+  ILS: '₪', TRY: '₺', XOF: 'CFA', XAF: 'FCFA', NGN: '₦', GHS: '₵',
+  KES: 'KSh', ETB: 'Br', ZAR: 'R', EUR: '€', GBP: '£', CHF: 'CHF',
+  USD: '$', CAD: 'CA$', CNY: '¥', INR: '₹'
+};
+var CURRENCY_NAMES = {
+  DZD: { ar: 'دينار جزائري', fr: 'Dinar algérien', en: 'Algerian Dinar' },
+  MAD: { ar: 'درهم مغربي', fr: 'Dirham marocain', en: 'Moroccan Dirham' },
+  TND: { ar: 'دينار تونسي', fr: 'Dinar tunisien', en: 'Tunisian Dinar' },
+  LYD: { ar: 'دينار ليبي', fr: 'Dinar libyen', en: 'Libyan Dinar' },
+  EGP: { ar: 'جنيه مصري', fr: 'Livre égyptienne', en: 'Egyptian Pound' },
+  MRU: { ar: 'أوقية موريتانية', fr: 'Ouguiya mauritanienne', en: 'Mauritanian Ouguiya' },
+  SAR: { ar: 'ريال سعودي', fr: 'Riyal saoudien', en: 'Saudi Riyal' },
+  AED: { ar: 'درهم إماراتي', fr: 'Dirham des Émirats', en: 'UAE Dirham' },
+  QAR: { ar: 'ريال قطري', fr: 'Riyal qatari', en: 'Qatari Riyal' },
+  KWD: { ar: 'دينار كويتي', fr: 'Dinar koweïtien', en: 'Kuwaiti Dinar' },
+  BHD: { ar: 'دينار بحريني', fr: 'Dinar bahreïni', en: 'Bahraini Dinar' },
+  OMR: { ar: 'ريال عُماني', fr: 'Riyal omanais', en: 'Omani Rial' },
+  JOD: { ar: 'دينار أردني', fr: 'Dinar jordanien', en: 'Jordanian Dinar' },
+  LBP: { ar: 'ليرة لبنانية', fr: 'Livre libanaise', en: 'Lebanese Pound' },
+  IQD: { ar: 'دينار عراقي', fr: 'Dinar irakien', en: 'Iraqi Dinar' },
+  SYP: { ar: 'ليرة سورية', fr: 'Livre syrienne', en: 'Syrian Pound' },
+  YER: { ar: 'ريال يمني', fr: 'Riyal yéménite', en: 'Yemeni Rial' },
+  SDG: { ar: 'جنيه سوداني', fr: 'Livre soudanaise', en: 'Sudanese Pound' },
+  ILS: { ar: 'شيكل', fr: 'Shekel', en: 'Israeli Shekel' },
+  TRY: { ar: 'ليرة تركية', fr: 'Livre turque', en: 'Turkish Lira' },
+  XOF: { ar: 'فرنك غرب إفريقيا', fr: 'Franc CFA (UEMOA)', en: 'West African CFA franc' },
+  XAF: { ar: 'فرنك وسط إفريقيا', fr: 'Franc CFA (CEMAC)', en: 'Central African CFA franc' },
+  NGN: { ar: 'نايرا نيجيرية', fr: 'Naira nigérian', en: 'Nigerian Naira' },
+  GHS: { ar: 'سيدي غاني', fr: 'Cedi ghanéen', en: 'Ghanaian Cedi' },
+  KES: { ar: 'شلن كيني', fr: 'Shilling kényan', en: 'Kenyan Shilling' },
+  ETB: { ar: 'بير إثيوبي', fr: 'Birr éthiopien', en: 'Ethiopian Birr' },
+  ZAR: { ar: 'راند جنوب إفريقي', fr: 'Rand sud-africain', en: 'South African Rand' },
+  EUR: { ar: 'يورو', fr: 'Euro', en: 'Euro' },
+  GBP: { ar: 'جنيه إسترليني', fr: 'Livre sterling', en: 'British Pound' },
+  CHF: { ar: 'فرنك سويسري', fr: 'Franc suisse', en: 'Swiss Franc' },
+  USD: { ar: 'دولار أمريكي', fr: 'Dollar américain', en: 'US Dollar' },
+  CAD: { ar: 'دولار كندي', fr: 'Dollar canadien', en: 'Canadian Dollar' },
+  CNY: { ar: 'يوان صيني', fr: 'Yuan chinois', en: 'Chinese Yuan' },
+  INR: { ar: 'روبية هندية', fr: 'Roupie indienne', en: 'Indian Rupee' }
+};
+var COUNTRIES = [
+  { code: 'DZ', ar: 'الجزائر', fr: 'Algérie', en: 'Algeria', currency: 'DZD' },
+  { code: 'MA', ar: 'المغرب', fr: 'Maroc', en: 'Morocco', currency: 'MAD' },
+  { code: 'TN', ar: 'تونس', fr: 'Tunisie', en: 'Tunisia', currency: 'TND' },
+  { code: 'LY', ar: 'ليبيا', fr: 'Libye', en: 'Libya', currency: 'LYD' },
+  { code: 'EG', ar: 'مصر', fr: 'Égypte', en: 'Egypt', currency: 'EGP' },
+  { code: 'MR', ar: 'موريتانيا', fr: 'Mauritanie', en: 'Mauritania', currency: 'MRU' },
+  { code: 'SA', ar: 'السعودية', fr: 'Arabie saoudite', en: 'Saudi Arabia', currency: 'SAR' },
+  { code: 'AE', ar: 'الإمارات', fr: 'Émirats arabes unis', en: 'United Arab Emirates', currency: 'AED' },
+  { code: 'QA', ar: 'قطر', fr: 'Qatar', en: 'Qatar', currency: 'QAR' },
+  { code: 'KW', ar: 'الكويت', fr: 'Koweït', en: 'Kuwait', currency: 'KWD' },
+  { code: 'BH', ar: 'البحرين', fr: 'Bahreïn', en: 'Bahrain', currency: 'BHD' },
+  { code: 'OM', ar: 'عُمان', fr: 'Oman', en: 'Oman', currency: 'OMR' },
+  { code: 'JO', ar: 'الأردن', fr: 'Jordanie', en: 'Jordan', currency: 'JOD' },
+  { code: 'LB', ar: 'لبنان', fr: 'Liban', en: 'Lebanon', currency: 'LBP' },
+  { code: 'IQ', ar: 'العراق', fr: 'Irak', en: 'Iraq', currency: 'IQD' },
+  { code: 'SY', ar: 'سوريا', fr: 'Syrie', en: 'Syria', currency: 'SYP' },
+  { code: 'YE', ar: 'اليمن', fr: 'Yémen', en: 'Yemen', currency: 'YER' },
+  { code: 'SD', ar: 'السودان', fr: 'Soudan', en: 'Sudan', currency: 'SDG' },
+  { code: 'PS', ar: 'فلسطين', fr: 'Palestine', en: 'Palestine', currency: 'ILS' },
+  { code: 'TR', ar: 'تركيا', fr: 'Turquie', en: 'Turkey', currency: 'TRY' },
+  { code: 'SN', ar: 'السنغال', fr: 'Sénégal', en: 'Senegal', currency: 'XOF' },
+  { code: 'CI', ar: 'ساحل العاج', fr: "Côte d'Ivoire", en: 'Ivory Coast', currency: 'XOF' },
+  { code: 'ML', ar: 'مالي', fr: 'Mali', en: 'Mali', currency: 'XOF' },
+  { code: 'NE', ar: 'النيجر', fr: 'Niger', en: 'Niger', currency: 'XOF' },
+  { code: 'BF', ar: 'بوركينا فاسو', fr: 'Burkina Faso', en: 'Burkina Faso', currency: 'XOF' },
+  { code: 'TG', ar: 'توغو', fr: 'Togo', en: 'Togo', currency: 'XOF' },
+  { code: 'BJ', ar: 'بنين', fr: 'Bénin', en: 'Benin', currency: 'XOF' },
+  { code: 'CM', ar: 'الكاميرون', fr: 'Cameroun', en: 'Cameroon', currency: 'XAF' },
+  { code: 'GA', ar: 'الغابون', fr: 'Gabon', en: 'Gabon', currency: 'XAF' },
+  { code: 'TD', ar: 'تشاد', fr: 'Tchad', en: 'Chad', currency: 'XAF' },
+  { code: 'CG', ar: 'الكونغو', fr: 'Congo', en: 'Congo', currency: 'XAF' },
+  { code: 'NG', ar: 'نيجيريا', fr: 'Nigéria', en: 'Nigeria', currency: 'NGN' },
+  { code: 'GH', ar: 'غانا', fr: 'Ghana', en: 'Ghana', currency: 'GHS' },
+  { code: 'KE', ar: 'كينيا', fr: 'Kenya', en: 'Kenya', currency: 'KES' },
+  { code: 'ET', ar: 'إثيوبيا', fr: 'Éthiopie', en: 'Ethiopia', currency: 'ETB' },
+  { code: 'ZA', ar: 'جنوب أفريقيا', fr: 'Afrique du Sud', en: 'South Africa', currency: 'ZAR' },
+  { code: 'FR', ar: 'فرنسا', fr: 'France', en: 'France', currency: 'EUR' },
+  { code: 'DE', ar: 'ألمانيا', fr: 'Allemagne', en: 'Germany', currency: 'EUR' },
+  { code: 'ES', ar: 'إسبانيا', fr: 'Espagne', en: 'Spain', currency: 'EUR' },
+  { code: 'IT', ar: 'إيطاليا', fr: 'Italie', en: 'Italy', currency: 'EUR' },
+  { code: 'BE', ar: 'بلجيكا', fr: 'Belgique', en: 'Belgium', currency: 'EUR' },
+  { code: 'NL', ar: 'هولندا', fr: 'Pays-Bas', en: 'Netherlands', currency: 'EUR' },
+  { code: 'GB', ar: 'بريطانيا', fr: 'Royaume-Uni', en: 'United Kingdom', currency: 'GBP' },
+  { code: 'CH', ar: 'سويسرا', fr: 'Suisse', en: 'Switzerland', currency: 'CHF' },
+  { code: 'US', ar: 'الولايات المتحدة', fr: 'États-Unis', en: 'United States', currency: 'USD' },
+  { code: 'CA', ar: 'كندا', fr: 'Canada', en: 'Canada', currency: 'CAD' },
+  { code: 'CN', ar: 'الصين', fr: 'Chine', en: 'China', currency: 'CNY' },
+  { code: 'IN', ar: 'الهند', fr: 'Inde', en: 'India', currency: 'INR' },
+  { code: 'OTHER', ar: 'دولة أخرى', fr: 'Autre pays', en: 'Other country', currency: '' }
+];
+function countryOf(code) { return COUNTRIES.find(function (c) { return c.code === code; }); }
+function countryName(c) { return c[lang()] || c.ar; }
+function currencyName(code) { var e = CURRENCY_NAMES[code]; return e ? ((e[lang()] || e.ar) + ' (' + code + ')') : code; }
+function curSuffix() { var code = (S && S.settings && S.settings.currency) || 'DZD'; return CURRENCIES[code] || code; }
 
 /* ---------- money: integer centimes, quantities in thousandths, tax in basis points ---------- */
 function fmt(c) {
@@ -393,7 +494,7 @@ function norm(s) {
 function seed() {
   var now = Date.now(), day = 86400000, da = function (n) { return n * 100; };
   var st = {
-    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', lang: 'ar' },
+    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', lang: 'ar', country: 'DZ', currency: 'DZD' },
     seq: { id: 100, inv: 0 },
     products: [
       { id: 1, name: 'حليب 1 لتر', price: da(70), taxBp: 0, cost: da(55), min: 10 },
@@ -427,6 +528,8 @@ function load() {
         if (!o.suppliers) o.suppliers = [];
         if (!o.settings) o.settings = { includeTax: true, shop: '' };
         if (!o.settings.lang) o.settings.lang = 'ar';
+        if (!o.settings.country) o.settings.country = 'DZ';
+        if (!o.settings.currency) o.settings.currency = 'DZD';
         return o;
       }
     }
@@ -673,7 +776,7 @@ function loadScript(src) {
 function renderReceiptCanvas(inv) {
   return loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js').then(function () {
     var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:16px';
+    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111;padding:16px';
     box.innerHTML = receiptPrintHtml(inv);
     document.body.appendChild(box);
     return window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff' }).then(function (canvas) {
@@ -869,8 +972,13 @@ function formSupplier() {
 function formSettings() {
   var l = lang();
   var langOpt = function (code, label) { return '<option value="' + code + '"' + (l === code ? ' selected' : '') + '>' + label + '</option>'; };
+  var countryOpt = function (c) { return '<option value="' + c.code + '" data-cur="' + c.currency + '"' + (S.settings.country === c.code ? ' selected' : '') + '>' + esc(countryName(c)) + '</option>'; };
+  var curOpt = function (code) { return '<option value="' + code + '"' + (S.settings.currency === code ? ' selected' : '') + '>' + esc(currencyName(code) + ' ' + CURRENCIES[code]) + '</option>'; };
   openSheet(t('settings.title'), '<form data-form="settings">' + field('shop', t('settings.shop'), 'type="text" autocomplete="off" value="' + esc(S.settings.shop || '') + '"') +
     '<label class="f" for="lang">' + t('settings.lang') + '</label><select id="lang" name="lang">' + langOpt('ar', 'العربية') + langOpt('fr', 'Français') + langOpt('en', 'English') + '</select>' +
+    '<label class="f" for="country">' + t('settings.country') + '</label><select id="country" name="country">' + COUNTRIES.map(countryOpt).join('') + '</select>' +
+    '<label class="f" for="currency">' + t('settings.currency') + '</label><select id="currency" name="currency">' + Object.keys(CURRENCIES).map(curOpt).join('') + '</select>' +
+    '<div class="note">' + t('settings.currencyNote') + '</div>' +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
     '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
 }
@@ -925,6 +1033,10 @@ var HANDLERS = {
     S.settings.shop = (fd.get('shop') || '').trim();
     var newLang = fd.get('lang'); if (newLang !== 'ar' && newLang !== 'fr' && newLang !== 'en') newLang = 'ar';
     S.settings.lang = newLang;
+    var newCountry = fd.get('country'); if (!countryOf(newCountry)) newCountry = 'DZ';
+    S.settings.country = newCountry;
+    var newCurrency = fd.get('currency'); if (!CURRENCIES[newCurrency]) newCurrency = 'DZD';
+    S.settings.currency = newCurrency;
     save(); applyLangAttrs(); closeSheet(); render(); toast(t('form.settingsSaved'));
   }
 };
@@ -1025,6 +1137,13 @@ document.addEventListener('input', function (e) {
   else if (id === 'paid') { ui.paid = e.target.value; }
 });
 document.addEventListener('change', function (e) { if (e.target.id === 'custSel') ui.cust = e.target.value; });
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'country') {
+    var opt = e.target.selectedOptions[0], cur = opt && opt.getAttribute('data-cur');
+    var curSel = document.getElementById('currency');
+    if (cur && curSel) curSel.value = cur;
+  }
+});
 document.addEventListener('submit', function (e) {
   e.preventDefault();
   var f = e.target, h = HANDLERS[f.dataset.form]; if (!h) return;

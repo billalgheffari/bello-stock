@@ -151,24 +151,218 @@ nav.tabs { display: none; }
   <header class="top" id="header"></header>
   <main id="main"></main>
 </div>
-<nav class="tabs" aria-label="التنقل"><div class="in" id="tabs"></div></nav>
+<nav class="tabs" aria-label="nav"><div class="in" id="tabs"></div></nav>
 <div id="sheetWrap" hidden>
   <div class="backdrop" data-act="closeSheet"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-    <div class="sheet-head"><h2 id="sheetTitle"></h2><button type="button" data-act="closeSheet" aria-label="إغلاق">&times;</button></div>
+    <div class="sheet-head"><h2 id="sheetTitle"></h2><button type="button" id="sheetClose" data-act="closeSheet">&times;</button></div>
     <div id="sheetBody"></div>
   </div>
 </div>
 <div id="toast" role="status" hidden></div>
 
 <script>
+var APP_VERSION = '1.2.0';
+/* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
+var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
+function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
+function applyLangAttrs() {
+  var l = lang();
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+}
+var STR = {
+  tagline: { ar: 'محاسبة المحل', fr: 'Comptabilité du magasin', en: 'Shop accounting' },
+  splashTag: { ar: 'محلك في مكان آمن', fr: 'Votre commerce, en lieu sûr', en: 'Your shop, safely kept' },
+  'nav.back': { ar: 'رجوع', fr: 'Retour', en: 'Back' },
+  'common.close': { ar: 'إغلاق', fr: 'Fermer', en: 'Close' },
+  'common.save': { ar: 'حفظ', fr: 'Enregistrer', en: 'Save' },
+  'common.cancel': { ar: 'إلغاء', fr: 'Annuler', en: 'Cancel' },
+  'common.note': { ar: 'ملاحظة', fr: 'Note', en: 'Note' },
+  'home.title': { ar: 'الرئيسية', fr: 'Accueil', en: 'Home' },
+  'home.sale': { ar: 'بيع جديد', fr: 'Nouvelle vente', en: 'New sale' },
+  'home.products': { ar: 'المخزون', fr: 'Stock', en: 'Stock' },
+  'home.customers': { ar: 'العملاء', fr: 'Clients', en: 'Customers' },
+  'home.suppliers': { ar: 'الموردون', fr: 'Fournisseurs', en: 'Suppliers' },
+  'home.expense': { ar: 'المصروفات', fr: 'Dépenses', en: 'Expenses' },
+  'home.cash': { ar: 'الصندوق', fr: 'Caisse', en: 'Cash box' },
+  'home.reports': { ar: 'التقارير', fr: 'Rapports', en: 'Reports' },
+  'settings.title': { ar: 'الإعدادات', fr: 'Paramètres', en: 'Settings' },
+  'settings.shop': { ar: 'اسم المحل (يظهر في الإيصال)', fr: 'Nom du magasin (affiché sur le reçu)', en: 'Shop name (shown on the receipt)' },
+  'settings.lang': { ar: 'اللغة', fr: 'Langue', en: 'Language' },
+  'settings.version': { ar: 'الإصدار', fr: 'Version', en: 'Version' },
+  'titles.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
+  'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits', en: 'Stock and products' },
+  'titles.customers': { ar: 'العملاء والموردون', fr: 'Clients et fournisseurs', en: 'Customers and suppliers' },
+  'titles.cash': { ar: 'الصندوق', fr: 'Caisse', en: 'Cash box' },
+  'titles.reports': { ar: 'التقارير', fr: 'Rapports', en: 'Reports' },
+  'method.cash': { ar: 'نقدًا', fr: 'Espèces', en: 'Cash' },
+  'method.credit': { ar: 'آجل', fr: 'Crédit', en: 'Credit' },
+  'method.card': { ar: 'بطاقة', fr: 'Carte', en: 'Card' },
+  'method.cheque': { ar: 'شيك', fr: 'Chèque', en: 'Cheque' },
+  'method.wallet': { ar: 'محفظة', fr: 'Portefeuille', en: 'Wallet' },
+  'sale.searchLabel': { ar: 'ابحث عن منتج', fr: 'Rechercher un produit', en: 'Search a product' },
+  'sale.searchPh': { ar: 'حليب، خبز، قهوة...', fr: 'Lait, pain, café...', en: 'Milk, bread, coffee...' },
+  'sale.cart': { ar: 'السلة', fr: 'Panier', en: 'Cart' },
+  'sale.stock': { ar: 'المخزون', fr: 'Stock', en: 'Stock' },
+  'sale.low': { ar: 'ينقص', fr: 'faible', en: 'low' },
+  'sale.noProduct': { ar: 'لا يوجد منتج بهذا الاسم', fr: 'Aucun produit avec ce nom', en: 'No product with that name' },
+  'sale.emptyCart': { ar: 'اضغط على منتج ليدخل السلة', fr: 'Touchez un produit pour l’ajouter au panier', en: 'Tap a product to add it to the cart' },
+  'sale.perUnit': { ar: 'للوحدة', fr: '/unité', en: '/unit' },
+  'sale.overStock': { ar: 'أكثر من المخزون', fr: 'dépasse le stock', en: 'more than stock' },
+  'sale.dec': { ar: 'أنقص', fr: 'Diminuer', en: 'Decrease' },
+  'sale.inc': { ar: 'زِد', fr: 'Augmenter', en: 'Increase' },
+  'sale.payMethod': { ar: 'طريقة الدفع', fr: 'Mode de paiement', en: 'Payment method' },
+  'sale.customer': { ar: 'العميل', fr: 'Client', en: 'Customer' },
+  'sale.chooseCustomer': { ar: 'اختر العميل', fr: 'Choisir le client', en: 'Choose customer' },
+  'sale.paidNow': { ar: 'المبلغ المدفوع الآن، اتركه فارغًا إن لم يدفع', fr: 'Montant payé maintenant, laissez vide si rien n’a été payé', en: 'Amount paid now, leave blank if nothing was paid' },
+  'sale.beforeTax': { ar: 'قبل الضريبة', fr: 'Avant taxe', en: 'Before tax' },
+  'sale.tax': { ar: 'الضريبة', fr: 'Taxe', en: 'Tax' },
+  'sale.total': { ar: 'المجموع', fr: 'Total', en: 'Total' },
+  'sale.clear': { ar: 'إفراغ السلة', fr: 'Vider le panier', en: 'Clear cart' },
+  'sale.saveSale': { ar: 'حفظ البيع', fr: 'Enregistrer la vente', en: 'Save sale' },
+  'sale.emptyCartErr': { ar: 'السلة فارغة', fr: 'Le panier est vide', en: 'The cart is empty' },
+  'sale.chooseCustomerErr': { ar: 'اختر عميلًا للبيع الآجل', fr: 'Choisissez un client pour la vente à crédit', en: 'Choose a customer for a credit sale' },
+  'sale.paidAmountErr': { ar: 'المبلغ المدفوع غير صحيح', fr: 'Le montant payé n’est pas valide', en: 'The paid amount is not valid' },
+  'receipt.invoiceNo': { ar: 'فاتورة رقم', fr: 'Facture n°', en: 'Invoice #' },
+  'receipt.customer': { ar: 'العميل', fr: 'Client', en: 'Customer' },
+  'receipt.paidAmount': { ar: 'المدفوع', fr: 'Payé', en: 'Paid' },
+  'receipt.remaining': { ar: 'المتبقي', fr: 'Reste', en: 'Remaining' },
+  'receipt.remainingOnCustomer': { ar: 'المتبقي على العميل', fr: 'Reste dû par le client', en: 'Remaining owed by customer' },
+  'receipt.thanks': { ar: 'شكرًا لزيارتكم', fr: 'Merci de votre visite', en: 'Thank you for your visit' },
+  'receipt.savedTitle': { ar: 'تم حفظ البيع', fr: 'Vente enregistrée', en: 'Sale saved' },
+  'receipt.printNote': { ar: 'زر "طباعة" يفتح قائمة الطباعة الحقيقية في الهاتف. إذا كان عندك تطبيق RawBT (مجاني، لطابعات البلوتوث الحرارية) مثبّتًا ومُقرَّنًا بالطابعة، يطبع مباشرة عليها من هذه القائمة. زر "مشاركة" يرسل نص الإيصال عبر واتساب أو أي تطبيق آخر.', fr: 'Le bouton « Imprimer » ouvre le vrai menu d’impression du téléphone. Si vous avez RawBT (gratuit, pour imprimantes thermiques Bluetooth) installé et jumelé, il imprime directement depuis ce menu. Le bouton « Partager » envoie le texte du reçu via WhatsApp ou une autre application.', en: 'The "Print" button opens the phone’s real print menu. If you have RawBT (free, for Bluetooth thermal printers) installed and paired, it prints straight from that menu. The "Share" button sends the receipt text via WhatsApp or another app.' },
+  'receipt.print': { ar: 'طباعة', fr: 'Imprimer', en: 'Print' },
+  'receipt.share': { ar: 'مشاركة', fr: 'Partager', en: 'Share' },
+  'receipt.newSale': { ar: 'بيع جديد', fr: 'Nouvelle vente', en: 'New sale' },
+  'receipt.noPrinter': { ar: 'لا توجد خدمة طباعة على هذا الجهاز. جرّب زر "مشاركة" بدل ذلك.', fr: 'Aucun service d’impression sur cet appareil. Essayez plutôt le bouton « Partager ».', en: 'No print service found on this device. Try the "Share" button instead.' },
+  'receipt.printFailed': { ar: 'تعذّرت الطباعة، جرّب المشاركة بدل ذلك', fr: 'Échec de l’impression, essayez le partage à la place', en: 'Printing failed, try sharing instead' },
+  'receipt.textCopied': { ar: 'تم نسخ نص الإيصال', fr: 'Texte du reçu copié', en: 'Receipt text copied' },
+  'receipt.textTitle': { ar: 'نص الإيصال', fr: 'Texte du reçu', en: 'Receipt text' },
+  'receipt.textNote': { ar: 'انسخ النص وأرسله إلى تطبيق الطباعة أو واتساب.', fr: 'Copiez le texte et envoyez-le à l’application d’impression ou à WhatsApp.', en: 'Copy the text and send it to a print app or WhatsApp.' },
+  'products.searchPh': { ar: 'ابحث في المنتجات', fr: 'Rechercher un produit', en: 'Search products' },
+  'products.add': { ar: '+ منتج', fr: '+ Produit', en: '+ Product' },
+  'products.title': { ar: 'المنتجات والمخزون', fr: 'Produits et stock', en: 'Products and stock' },
+  'products.taxPct': { ar: 'ضريبة', fr: 'taxe', en: 'tax' },
+  'products.restock': { ar: '+ مخزون', fr: '+ Stock', en: '+ Stock' },
+  'products.delete': { ar: 'حذف', fr: 'Supprimer', en: 'Delete' },
+  'products.empty': { ar: 'لا توجد منتجات', fr: 'Aucun produit', en: 'No products' },
+  'products.deleteTitle': { ar: 'حذف المنتج', fr: 'Supprimer le produit', en: 'Delete product' },
+  'products.deleteText': { ar: 'هل تريد حذف هذا المنتج؟ هذا لا يمكن التراجع عنه، ولن يؤثر على الفواتير السابقة.', fr: 'Voulez-vous supprimer ce produit ? C’est irréversible et n’affecte pas les factures passées.', en: 'Delete this product? This cannot be undone, and it won’t affect past invoices.' },
+  'products.deleteConfirm': { ar: 'حذف نهائي', fr: 'Supprimer définitivement', en: 'Delete permanently' },
+  'products.deleted': { ar: 'تم حذف المنتج', fr: 'Produit supprimé', en: 'Product deleted' },
+  'products.restockTitle': { ar: 'زيادة مخزون', fr: 'Augmenter le stock', en: 'Restock' },
+  'products.qtyReceived': { ar: 'الكمية المستلمة', fr: 'Quantité reçue', en: 'Quantity received' },
+  'party.kind': { ar: 'نوع الطرف', fr: 'Type', en: 'Type' },
+  'party.customers': { ar: 'العملاء', fr: 'Clients', en: 'Customers' },
+  'party.suppliers': { ar: 'الموردون', fr: 'Fournisseurs', en: 'Suppliers' },
+  'party.weOweSuppliers': { ar: 'مجموع ما ندين به للموردين', fr: 'Total dû aux fournisseurs', en: 'Total owed to suppliers' },
+  'party.customersOwe': { ar: 'مجموع ديون العملاء', fr: 'Total dû par les clients', en: 'Total owed by customers' },
+  'party.searchSupplier': { ar: 'ابحث عن مورد', fr: 'Rechercher un fournisseur', en: 'Search a supplier' },
+  'party.searchCustomer': { ar: 'ابحث عن عميل', fr: 'Rechercher un client', en: 'Search a customer' },
+  'party.addSupplier': { ar: '+ مورد', fr: '+ Fournisseur', en: '+ Supplier' },
+  'party.addCustomer': { ar: '+ عميل', fr: '+ Client', en: '+ Customer' },
+  'party.noCustomers': { ar: 'لا يوجد عملاء', fr: 'Aucun client', en: 'No customers' },
+  'party.noSuppliers': { ar: 'لا يوجد موردون', fr: 'Aucun fournisseur', en: 'No suppliers' },
+  'party.owesUs': { ar: 'عليه', fr: 'doit', en: 'owes' },
+  'party.creditBalance': { ar: 'له', fr: 'créditeur', en: 'credit' },
+  'party.noDebt': { ar: 'لا دين', fr: 'aucune dette', en: 'no debt' },
+  'party.weOwe': { ar: 'نحن مدينون', fr: 'nous devons', en: 'we owe' },
+  'party.overpaid': { ar: 'دفعنا زيادة', fr: 'payé en trop', en: 'overpaid' },
+  'party.balance': { ar: 'الرصيد', fr: 'Solde', en: 'Balance' },
+  'party.owesUsFull': { ar: 'عليه', fr: 'Il/elle doit', en: 'They owe' },
+  'party.creditBalanceFull': { ar: 'له (دفعة مقدّمة)', fr: 'Créditeur (avance)', en: 'In credit (advance payment)' },
+  'party.weOweFull': { ar: 'نحن مدينون', fr: 'Nous devons', en: 'We owe' },
+  'party.overpaidFull': { ar: 'دفعنا أكثر من اللازم', fr: 'Nous avons trop payé', en: 'We overpaid' },
+  'party.recordPayment': { ar: 'تسجيل دفعة', fr: 'Enregistrer un paiement', en: 'Record a payment' },
+  'party.copyStatement': { ar: 'نسخ كشف الحساب', fr: 'Copier le relevé', en: 'Copy statement' },
+  'party.recordInvoice': { ar: 'تسجيل فاتورة يدويًا', fr: 'Enregistrer une facture manuelle', en: 'Record a manual invoice' },
+  'party.statement': { ar: 'كشف الحساب', fr: 'Relevé de compte', en: 'Account statement' },
+  'party.noMoves': { ar: 'لا توجد حركات بعد', fr: 'Aucun mouvement pour l’instant', en: 'No movements yet' },
+  'party.manualInvoiceNote': { ar: 'تسجيل الفاتورة يدويًا الآن للمتابعة المالية فقط، ولا يزيد المخزون بعد. شراء حقيقي بخطوط أصناف يأتي في نسخة لاحقة.', fr: 'Pour l’instant, la facture manuelle ne sert qu’au suivi financier et n’augmente pas le stock. Un achat réel avec lignes d’articles viendra dans une prochaine version.', en: 'For now, the manual invoice is for financial tracking only and does not increase stock. A real purchase with item lines is coming in a future version.' },
+  'party.statementHeader': { ar: 'كشف حساب', fr: 'Relevé de compte', en: 'Account statement' },
+  'party.totalDue': { ar: 'المجموع المستحق', fr: 'Total dû', en: 'Total due' },
+  'party.statementCopied': { ar: 'تم نسخ كشف الحساب', fr: 'Relevé copié', en: 'Statement copied' },
+  'party.sendWhatsapp': { ar: 'انسخ النص وأرسله عبر واتساب.', fr: 'Copiez le texte et envoyez-le via WhatsApp.', en: 'Copy the text and send it via WhatsApp.' },
+  'party.nameRequired': { ar: 'اكتب اسم العميل', fr: 'Entrez le nom du client', en: 'Enter the customer’s name' },
+  'party.supplierNameRequired': { ar: 'اكتب اسم المورد', fr: 'Entrez le nom du fournisseur', en: 'Enter the supplier’s name' },
+  'party.added': { ar: 'تمت إضافة العميل', fr: 'Client ajouté', en: 'Customer added' },
+  'party.supplierAdded': { ar: 'تمت إضافة المورد', fr: 'Fournisseur ajouté', en: 'Supplier added' },
+  'party.paymentRecorded': { ar: 'تم تسجيل الدفعة', fr: 'Paiement enregistré', en: 'Payment recorded' },
+  'party.invoiceRecorded': { ar: 'تم تسجيل الفاتورة', fr: 'Facture enregistrée', en: 'Invoice recorded' },
+  'cash.title': { ar: 'الصندوق (النقد فقط)', fr: 'Caisse (espèces uniquement)', en: 'Cash box (cash only)' },
+  'cash.in': { ar: 'إيداع', fr: 'Dépôt', en: 'Deposit' },
+  'cash.out': { ar: 'سحب', fr: 'Retrait', en: 'Withdrawal' },
+  'cash.expense': { ar: 'مصروف', fr: 'Dépense', en: 'Expense' },
+  'cash.recent': { ar: 'آخر الحركات', fr: 'Derniers mouvements', en: 'Recent movements' },
+  'cash.note': { ar: 'الحركات بالبطاقة أو الشيك أو المحفظة تظهر هنا بوسم، ولا تدخل في رصيد الصندوق النقدي.', fr: 'Les mouvements par carte, chèque ou portefeuille apparaissent ici avec une étiquette, sans entrer dans le solde en espèces.', en: 'Card, cheque or wallet movements appear here tagged, and don’t count toward the cash balance.' },
+  'cash.inTitle': { ar: 'إيداع في الصندوق', fr: 'Dépôt en caisse', en: 'Deposit to cash box' },
+  'cash.outTitle': { ar: 'سحب من الصندوق', fr: 'Retrait de la caisse', en: 'Withdrawal from cash box' },
+  'cash.deposited': { ar: 'تم الإيداع', fr: 'Dépôt effectué', en: 'Deposited' },
+  'cash.withdrawn': { ar: 'تم السحب', fr: 'Retrait effectué', en: 'Withdrawn' },
+  'fund.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
+  'fund.customer_payment': { ar: 'دفعة عميل', fr: 'Paiement client', en: 'Customer payment' },
+  'fund.expense': { ar: 'مصروف', fr: 'Dépense', en: 'Expense' },
+  'fund.manual_in': { ar: 'إيداع', fr: 'Dépôt', en: 'Deposit' },
+  'fund.manual_out': { ar: 'سحب', fr: 'Retrait', en: 'Withdrawal' },
+  'fund.purchase': { ar: 'شراء', fr: 'Achat', en: 'Purchase' },
+  'fund.supplier_payment': { ar: 'دفعة مورد', fr: 'Paiement fournisseur', en: 'Supplier payment' },
+  'reports.today': { ar: 'اليوم', fr: 'Aujourd’hui', en: 'Today' },
+  'reports.salesCount': { ar: 'المبيعات', fr: 'Ventes', en: 'Sales' },
+  'reports.invoice': { ar: 'فاتورة', fr: 'facture(s)', en: 'invoice(s)' },
+  'reports.profit': { ar: 'الربح التقديري', fr: 'Bénéfice estimé', en: 'Estimated profit' },
+  'reports.expenses': { ar: 'المصاريف', fr: 'Dépenses', en: 'Expenses' },
+  'reports.customerDebt': { ar: 'ديون العملاء', fr: 'Dettes clients', en: 'Customer debt' },
+  'reports.lowStock': { ar: 'منتجات تنقص', fr: 'Produits en manque', en: 'Low-stock products' },
+  'reports.allAboveMin': { ar: 'كل المنتجات فوق الحد الأدنى', fr: 'Tous les produits sont au-dessus du seuil minimum', en: 'All products are above the minimum' },
+  'reports.of': { ar: 'من', fr: 'sur', en: 'of' },
+  'reports.note': { ar: 'الربح يحسب من سعر الشراء المسجّل في المنتج. في التطبيق الحقيقي يوجد 19 تقريرًا بنطاق تاريخ قابل للاختيار.', fr: 'Le bénéfice est calculé à partir du prix d’achat enregistré du produit. L’application réelle propose 19 rapports avec une plage de dates au choix.', en: 'Profit is calculated from the product’s recorded purchase price. The real app has 19 reports with a selectable date range.' },
+  'reports.resetDemo': { ar: 'إعادة ضبط البيانات التجريبية', fr: 'Réinitialiser les données de démo', en: 'Reset demo data' },
+  'reports.resetDone': { ar: 'عادت البيانات التجريبية', fr: 'Les données de démo ont été restaurées', en: 'Demo data restored' },
+  'form.productNew': { ar: 'منتج جديد', fr: 'Nouveau produit', en: 'New product' },
+  'form.name': { ar: 'الاسم', fr: 'Nom', en: 'Name' },
+  'form.sellPrice': { ar: 'سعر البيع', fr: 'Prix de vente', en: 'Sale price' },
+  'form.costPrice': { ar: 'سعر الشراء', fr: 'Prix d’achat', en: 'Cost price' },
+  'form.taxPct': { ar: 'الضريبة %', fr: 'Taxe %', en: 'Tax %' },
+  'form.minAlert': { ar: 'حد التنبيه', fr: 'Seuil d’alerte', en: 'Alert threshold' },
+  'form.currentStock': { ar: 'المخزون الحالي', fr: 'Stock actuel', en: 'Current stock' },
+  'form.saveProduct': { ar: 'حفظ المنتج', fr: 'Enregistrer le produit', en: 'Save product' },
+  'form.productNameRequired': { ar: 'اكتب اسم المنتج', fr: 'Entrez le nom du produit', en: 'Enter the product’s name' },
+  'form.productAdded': { ar: 'تمت إضافة المنتج', fr: 'Produit ajouté', en: 'Product added' },
+  'form.stockIncreased': { ar: 'تمت زيادة المخزون', fr: 'Le stock a été augmenté', en: 'Stock increased' },
+  'form.validQty': { ar: 'أدخل كمية صحيحة', fr: 'Entrez une quantité valide', en: 'Enter a valid quantity' },
+  'form.customerNew': { ar: 'عميل جديد', fr: 'Nouveau client', en: 'New customer' },
+  'form.supplierNew': { ar: 'مورد جديد', fr: 'Nouveau fournisseur', en: 'New supplier' },
+  'form.phone': { ar: 'الهاتف', fr: 'Téléphone', en: 'Phone' },
+  'form.priorDebt': { ar: 'دين سابق', fr: 'Dette précédente', en: 'Prior debt' },
+  'form.priorDebtOwed': { ar: 'دين سابق لنا عليه', fr: 'Dette précédente que nous lui devons', en: 'Prior debt we owe them' },
+  'form.saveCustomer': { ar: 'حفظ العميل', fr: 'Enregistrer le client', en: 'Save customer' },
+  'form.saveSupplier': { ar: 'حفظ المورد', fr: 'Enregistrer le fournisseur', en: 'Save supplier' },
+  'form.amount': { ar: 'المبلغ', fr: 'Montant', en: 'Amount' },
+  'form.validAmount': { ar: 'أدخل مبلغًا أكبر من صفر', fr: 'Entrez un montant supérieur à zéro', en: 'Enter an amount greater than zero' },
+  'form.supplierPaymentTitle': { ar: 'تسجيل دفعة لمورد', fr: 'Enregistrer un paiement fournisseur', en: 'Record a supplier payment' },
+  'form.supplierInvoiceTitle': { ar: 'تسجيل فاتورة مورد (يدوي)', fr: 'Enregistrer une facture fournisseur (manuel)', en: 'Record a supplier invoice (manual)' },
+  'form.invoiceNotePh': { ar: 'ملاحظة (مثلاً: فاتورة رقم ...)', fr: 'Note (par ex. : facture n° ...)', en: 'Note (e.g., invoice #...)' },
+  'form.expenseNew': { ar: 'مصروف جديد', fr: 'Nouvelle dépense', en: 'New expense' },
+  'form.category': { ar: 'النوع', fr: 'Catégorie', en: 'Category' },
+  'form.expenseRecorded': { ar: 'تم تسجيل المصروف', fr: 'Dépense enregistrée', en: 'Expense recorded' },
+  'form.settingsSaved': { ar: 'تم حفظ الإعدادات', fr: 'Paramètres enregistrés', en: 'Settings saved' },
+  'cat.rent': { ar: 'كراء', fr: 'Loyer', en: 'Rent' },
+  'cat.utilities': { ar: 'كهرباء وماء', fr: 'Électricité et eau', en: 'Electricity and water' },
+  'cat.wages': { ar: 'أجور', fr: 'Salaires', en: 'Wages' },
+  'cat.transport': { ar: 'نقل', fr: 'Transport', en: 'Transport' },
+  'cat.other': { ar: 'أخرى', fr: 'Autre', en: 'Other' }
+};
+function t(key) { var e = STR[key]; return (e && (e[lang()] || e.ar)) || key; }
+function curSuffix() { return lang() === 'ar' ? 'د.ج' : 'DA'; }
+
 /* ---------- money: integer centimes, quantities in thousandths, tax in basis points ---------- */
 function fmt(c) {
   var neg = c < 0; c = Math.abs(c);
   var w = Math.trunc(c / 100), f = c % 100;
-  var s = String(w).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  var s = String(w).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   if (f) s += ',' + String(f).padStart(2, '0');
-  return (neg ? '−' : '') + s + ' د.ج';
+  return (neg ? '−' : '') + s + ' ' + curSuffix();
 }
 function m(c) { return '<bdi class="num">' + fmt(c) + '</bdi>'; }
 function toCents(v) { var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? Math.round(n * 100) : 0; }
@@ -250,7 +444,13 @@ function dt(ts) {
 function startOfToday() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
 
 /* ---------- domain functions: each one is a single atomic update, like the data layer in architecture.md ---------- */
-var METHODS = { cash: 'نقدًا', credit: 'آجل', card: 'بطاقة', cheque: 'شيك', wallet: 'محفظة' };
+var METHOD_KEYS = ['cash', 'credit', 'card', 'cheque', 'wallet'];
+function methodLabel(k) { return t('method.' + k); }
+function methodOptions(selected, excludeCredit) {
+  return METHOD_KEYS.filter(function (k) { return !excludeCredit || k !== 'credit'; }).map(function (k) {
+    return '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + methodLabel(k) + '</option>';
+  }).join('');
+}
 function cartLines(cart) {
   return cart.map(function (c) {
     var p = prod(c.pid), qm = c.qty * 1000, l = calcLine(p.price, qm, p.taxBp, S.settings.includeTax, 0);
@@ -259,30 +459,30 @@ function cartLines(cart) {
 }
 function createSale(o) {
   var lines = cartLines(o.cart);
-  if (!lines.length) throw new Error('السلة فارغة');
+  if (!lines.length) throw new Error(t('sale.emptyCartErr'));
   var sub = 0, tax = 0;
   lines.forEach(function (l) { sub += l.net; tax += l.tax; });
   var total = sub + tax, paid = o.paid;
   if (o.method === 'credit') {
-    if (!o.customerId) throw new Error('اختر عميلًا للبيع الآجل');
-    if (paid < 0 || paid > total) throw new Error('المبلغ المدفوع غير صحيح');
+    if (!o.customerId) throw new Error(t('sale.chooseCustomerErr'));
+    if (paid < 0 || paid > total) throw new Error(t('sale.paidAmountErr'));
   } else paid = total;
   var ts = Date.now(), id = nid(), number = ++S.seq.inv;
   var inv = { id: id, number: number, customerId: o.customerId || null, ts: ts, method: o.method, subtotal: sub, tax: tax, total: total, paid: paid, lines: lines };
   S.invoices.push(inv);
   lines.forEach(function (l) { S.stock.push({ pid: l.pid, qty: -l.qty, kind: 'sale', doc: id, ts: ts }); });
   if (o.method === 'credit') {
-    S.ledger.push({ cid: o.customerId, ts: ts, kind: 'invoice', amount: total, doc: id, note: 'فاتورة ' + number });
-    if (paid > 0) S.ledger.push({ cid: o.customerId, ts: ts, kind: 'payment', amount: -paid, doc: id, note: 'دفعة مع الفاتورة ' + number });
+    S.ledger.push({ cid: o.customerId, ts: ts, kind: 'invoice', amount: total, doc: id, note: t('receipt.invoiceNo') + ' ' + number });
+    if (paid > 0) S.ledger.push({ cid: o.customerId, ts: ts, kind: 'payment', amount: -paid, doc: id, note: t('party.recordPayment') });
   }
-  if (paid > 0) S.fund.push({ ts: ts, kind: 'sale', method: o.method === 'credit' ? 'cash' : o.method, amount: paid, doc: id, note: 'فاتورة ' + number });
+  if (paid > 0) S.fund.push({ ts: ts, kind: 'sale', method: o.method === 'credit' ? 'cash' : o.method, amount: paid, doc: id, note: t('receipt.invoiceNo') + ' ' + number });
   save();
   return inv;
 }
 function recordCustomerPayment(cid, amount, method) {
-  if (amount <= 0) throw new Error('أدخل مبلغًا أكبر من صفر');
+  if (amount <= 0) throw new Error(t('form.validAmount'));
   var ts = Date.now(), id = nid();
-  S.ledger.push({ cid: cid, ts: ts, kind: 'payment', amount: -amount, doc: id, note: 'دفعة' });
+  S.ledger.push({ cid: cid, ts: ts, kind: 'payment', amount: -amount, doc: id, note: t('party.recordPayment') });
   S.fund.push({ ts: ts, kind: 'customer_payment', method: method, amount: amount, doc: id, note: cust(cid).name });
   save();
 }
@@ -290,62 +490,32 @@ function recordCustomerPayment(cid, amount, method) {
 function supplier(id) { return S.suppliers.find(function (s) { return s.id === id; }); }
 function balanceOfSupplier(sid) { var t = 0; S.ledger.forEach(function (x) { if (x.sid === sid) t += x.amount; }); return t; }
 function recordSupplierPayment(sid, amount, method) {
-  if (amount <= 0) throw new Error('أدخل مبلغًا أكبر من صفر');
+  if (amount <= 0) throw new Error(t('form.validAmount'));
   var ts = Date.now(), id = nid();
-  S.ledger.push({ sid: sid, ts: ts, kind: 'payment', amount: -amount, doc: id, note: 'دفعة لمورد' });
+  S.ledger.push({ sid: sid, ts: ts, kind: 'payment', amount: -amount, doc: id, note: t('form.supplierPaymentTitle') });
   S.fund.push({ ts: ts, kind: 'supplier_payment', method: method, amount: -amount, doc: id, note: supplier(sid).name });
   save();
 }
 function recordSupplierDebt(sid, amount, note) {
-  if (amount <= 0) throw new Error('أدخل مبلغًا أكبر من صفر');
-  S.ledger.push({ sid: sid, ts: Date.now(), kind: 'invoice', amount: amount, note: note || 'فاتورة مورد' });
+  if (amount <= 0) throw new Error(t('form.validAmount'));
+  S.ledger.push({ sid: sid, ts: Date.now(), kind: 'invoice', amount: amount, note: note || t('form.supplierInvoiceTitle') });
   save();
 }
 function addExpense(cat, amount, note) {
-  if (amount <= 0) throw new Error('أدخل مبلغًا أكبر من صفر');
+  if (amount <= 0) throw new Error(t('form.validAmount'));
   var ts = Date.now(), id = nid();
   S.expenses.push({ id: id, cat: cat, ts: ts, amount: amount, note: note });
   S.fund.push({ ts: ts, kind: 'expense', method: 'cash', amount: -amount, doc: id, note: cat });
   save();
 }
 function addFundEntry(dir, amount, note) {
-  if (amount <= 0) throw new Error('أدخل مبلغًا أكبر من صفر');
+  if (amount <= 0) throw new Error(t('form.validAmount'));
   S.fund.push({ ts: Date.now(), kind: dir === 'in' ? 'manual_in' : 'manual_out', method: 'cash', amount: dir === 'in' ? amount : -amount, note: note });
   save();
 }
+function deleteProduct(pid) { S.products = S.products.filter(function (p) { return p.id !== pid; }); save(); }
 
 /* ---------- ui ---------- */
-var ui = { tab: 'home', q: '', pq: '', sq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
-function lang() { return (S.settings && S.settings.lang) || 'ar'; }
-function applyLangAttrs() {
-  var l = lang();
-  document.documentElement.lang = l;
-  document.documentElement.dir = l === 'fr' ? 'ltr' : 'rtl';
-}
-var STR = {
-  tagline: { ar: 'محاسبة المحل', fr: 'Comptabilité du magasin' },
-  splashTag: { ar: 'محلك في مكان آمن', fr: 'Votre commerce, en lieu sûr' },
-  'nav.back': { ar: 'رجوع', fr: 'Retour' },
-  'home.title': { ar: 'الرئيسية', fr: 'Accueil' },
-  'home.sale': { ar: 'بيع جديد', fr: 'Nouvelle vente' },
-  'home.products': { ar: 'المخزون', fr: 'Stock' },
-  'home.customers': { ar: 'العملاء', fr: 'Clients' },
-  'home.suppliers': { ar: 'الموردون', fr: 'Fournisseurs' },
-  'home.expense': { ar: 'المصروفات', fr: 'Dépenses' },
-  'home.cash': { ar: 'الصندوق', fr: 'Caisse' },
-  'home.reports': { ar: 'التقارير', fr: 'Rapports' },
-  'settings.title': { ar: 'الإعدادات', fr: 'Paramètres' },
-  'titles.sale': { ar: 'بيع', fr: 'Vente' },
-  'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits' },
-  'titles.customers': { ar: 'العملاء والموردون', fr: 'Clients et fournisseurs' },
-  'titles.cash': { ar: 'الصندوق', fr: 'Caisse' },
-  'titles.reports': { ar: 'التقارير', fr: 'Rapports' }
-};
-function t(key) { var e = STR[key]; return (e && (e[lang()] || e.ar)) || key; }
-function syncBrand() {
-  var el = document.getElementById('brandSub');
-  if (el) el.textContent = S.settings.shop || t('tagline');
-}
 var ICONS = {
   sale: '<path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.6a1 1 0 0 0 1-.8L19 8H6.2"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/>',
   products: '<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>',
@@ -356,6 +526,12 @@ var ICONS = {
   reports: '<path d="M5 20V10M12 20V4M19 20v-7"/>'
 };
 var TITLES = { sale: 'titles.sale', products: 'titles.products', customers: 'titles.customers', cash: 'titles.cash', reports: 'titles.reports' };
+
+function syncBrand() {
+  var el = document.getElementById('brandSub');
+  if (el) el.textContent = S.settings.shop || t('tagline');
+  var sc = document.getElementById('sheetClose'); if (sc) sc.setAttribute('aria-label', t('common.close'));
+}
 
 /* ---------- history-based back button: pressing back closes a sheet, then returns home, only exits the app from the home screen ---------- */
 var suppressPop = false;
@@ -415,6 +591,7 @@ function openSheet(title, html) {
   document.getElementById('sheetTitle').textContent = title;
   document.getElementById('sheetBody').innerHTML = html;
   document.getElementById('sheetWrap').hidden = false;
+  var sc = document.getElementById('sheetClose'); if (sc) sc.setAttribute('aria-label', t('common.close'));
   var f = document.querySelector('#sheetBody input:not([type=hidden]), #sheetBody select');
   if (f) f.focus();
 }
@@ -422,103 +599,105 @@ function closeSheet() { document.getElementById('sheetWrap').hidden = true; }
 
 /* --- sale --- */
 function tabSale() {
-  return '<label class="f" for="q" style="margin-top:4px">ابحث عن منتج</label>' +
-    '<input id="q" type="search" placeholder="حليب، خبز، قهوة..." autocomplete="off" value="' + esc(ui.q) + '">' +
+  return '<label class="f" for="q" style="margin-top:4px">' + t('sale.searchLabel') + '</label>' +
+    '<input id="q" type="search" placeholder="' + t('sale.searchPh') + '" autocomplete="off" value="' + esc(ui.q) + '">' +
     '<div class="pgrid" id="grid"></div>' +
-    '<h2 class="sec">السلة</h2><div id="cart"></div>';
+    '<h2 class="sec">' + t('sale.cart') + '</h2><div id="cart"></div>';
 }
 function gridInto() {
   var q = norm(ui.q), list = S.products.filter(function (p) { return !q || norm(p.name).indexOf(q) !== -1; });
   document.getElementById('grid').innerHTML = list.length ? list.map(function (p) {
     var st = stockOf(p.id), low = st <= p.min * 1000;
-    return '<button type="button" class="pbtn" data-act="add" data-id="' + p.id + '"><span class="pn">' + esc(p.name) + '</span><span class="pp">' + m(p.price) + '</span><span class="ps' + (low ? ' low' : '') + '">المخزون: ' + qtyTxt(st) + (low ? ' · ينقص' : '') + '</span></button>';
-  }).join('') : '<div class="empty" style="grid-column:1/-1">لا يوجد منتج بهذا الاسم</div>';
+    return '<button type="button" class="pbtn" data-act="add" data-id="' + p.id + '"><span class="pn">' + esc(p.name) + '</span><span class="pp">' + m(p.price) + '</span><span class="ps' + (low ? ' low' : '') + '">' + t('sale.stock') + ': ' + qtyTxt(st) + (low ? ' · ' + t('sale.low') : '') + '</span></button>';
+  }).join('') : '<div class="empty" style="grid-column:1/-1">' + t('sale.noProduct') + '</div>';
 }
 function cartInto() {
   var el = document.getElementById('cart');
-  if (!ui.cart.length) { el.innerHTML = '<div class="card empty">اضغط على منتج ليدخل السلة</div>'; return; }
+  if (!ui.cart.length) { el.innerHTML = '<div class="card empty">' + t('sale.emptyCart') + '</div>'; return; }
   var lines = cartLines(ui.cart), sub = 0, tax = 0;
   lines.forEach(function (l) { sub += l.net; tax += l.tax; });
   var total = sub + tax;
   var html = '<div class="card">' + lines.map(function (l, i) {
     var q = ui.cart[i].qty, over = q * 1000 > stockOf(l.pid);
-    return '<div class="row"><div class="grow"><div class="name">' + esc(l.name) + '</div><div class="sub">' + m(l.price) + ' للوحدة' + (over ? ' · <span class="warn">أكثر من المخزون</span>' : '') + '</div></div>' +
-      '<div class="stepper"><button type="button" data-act="dec" data-i="' + i + '" aria-label="أنقص">&minus;</button><span class="q num">' + q + '</span><button type="button" data-act="inc" data-i="' + i + '" aria-label="زِد">+</button></div>' +
+    return '<div class="row"><div class="grow"><div class="name">' + esc(l.name) + '</div><div class="sub">' + m(l.price) + ' ' + t('sale.perUnit') + (over ? ' · <span class="warn">' + t('sale.overStock') + '</span>' : '') + '</div></div>' +
+      '<div class="stepper"><button type="button" data-act="dec" data-i="' + i + '" aria-label="' + t('sale.dec') + '">&minus;</button><span class="q num">' + q + '</span><button type="button" data-act="inc" data-i="' + i + '" aria-label="' + t('sale.inc') + '">+</button></div>' +
       '<div class="end" style="min-width:76px"><b>' + m(l.total) + '</b></div></div>';
   }).join('') + '</div>';
-  html += '<div class="card" style="margin-top:10px"><div style="padding:12px 14px"><div class="seg" role="group" aria-label="طريقة الدفع">' +
-    Object.keys(METHODS).map(function (k) { return '<button type="button" data-act="method" data-m="' + k + '" aria-pressed="' + (ui.method === k) + '">' + METHODS[k] + '</button>'; }).join('') + '</div>';
+  html += '<div class="card" style="margin-top:10px"><div style="padding:12px 14px"><div class="seg" role="group" aria-label="' + t('sale.payMethod') + '">' +
+    METHOD_KEYS.map(function (k) { return '<button type="button" data-act="method" data-m="' + k + '" aria-pressed="' + (ui.method === k) + '">' + methodLabel(k) + '</button>'; }).join('') + '</div>';
   if (ui.method === 'credit') {
-    html += '<label class="f" for="custSel">العميل</label><select id="custSel"><option value="">اختر العميل</option>' +
+    html += '<label class="f" for="custSel">' + t('sale.customer') + '</label><select id="custSel"><option value="">' + t('sale.chooseCustomer') + '</option>' +
       S.customers.map(function (c) { return '<option value="' + c.id + '"' + (String(c.id) === ui.cust ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') + '</select>' +
-      '<label class="f" for="paid">المبلغ المدفوع الآن (د.ج)، اتركه فارغًا إن لم يدفع</label><input id="paid" type="number" inputmode="decimal" min="0" step="0.01" value="' + esc(ui.paid) + '">';
+      '<label class="f" for="paid">' + t('sale.paidNow') + ' (' + curSuffix() + ')</label><input id="paid" type="number" inputmode="decimal" min="0" step="0.01" value="' + esc(ui.paid) + '">';
   }
-  html += '</div>' + (tax ? '<div class="row"><span class="grow muted">قبل الضريبة</span>' + m(sub) + '</div><div class="row"><span class="grow muted">الضريبة</span>' + m(tax) + '</div>' : '') +
-    '<div class="totalbar"><span class="muted">المجموع</span><span class="big">' + m(total) + '</span></div></div>' +
-    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="clear">إفراغ السلة</button><button type="button" class="btn primary" data-act="save" style="flex:2">حفظ البيع</button></div>';
+  html += '</div>' + (tax ? '<div class="row"><span class="grow muted">' + t('sale.beforeTax') + '</span>' + m(sub) + '</div><div class="row"><span class="grow muted">' + t('sale.tax') + '</span>' + m(tax) + '</div>' : '') +
+    '<div class="totalbar"><span class="muted">' + t('sale.total') + '</span><span class="big">' + m(total) + '</span></div></div>' +
+    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="clear">' + t('sale.clear') + '</button><button type="button" class="btn primary" data-act="save" style="flex:2">' + t('sale.saveSale') + '</button></div>';
   el.innerHTML = html;
 }
 function receiptText(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var lines = inv.lines.map(function (l) { return esc(l.name) + ' x' + qtyTxt(l.qty) + '  ' + fmt(l.total); }).join('\n');
-  return esc(S.settings.shop) + '\n' + dt(inv.ts) + ' - فاتورة رقم ' + inv.number + (c ? '\nالعميل: ' + esc(c.name) : '') +
-    '\n--------------------\n' + lines + '\n--------------------\nالمجموع: ' + fmt(inv.total) + '\nالدفع: ' + METHODS[inv.method] +
-    (inv.method === 'credit' ? '\nالمدفوع: ' + fmt(inv.paid) + '\nالمتبقي: ' + fmt(inv.total - inv.paid) : '') + '\nشكرًا لزيارتكم';
+  return esc(S.settings.shop) + '\n' + dt(inv.ts) + ' - ' + t('receipt.invoiceNo') + ' ' + inv.number + (c ? '\n' + t('receipt.customer') + ': ' + esc(c.name) : '') +
+    '\n--------------------\n' + lines + '\n--------------------\n' + t('sale.total') + ': ' + fmt(inv.total) + '\n' + t('sale.payMethod') + ': ' + methodLabel(inv.method) +
+    (inv.method === 'credit' ? '\n' + t('receipt.paidAmount') + ': ' + fmt(inv.paid) + '\n' + t('receipt.remaining') + ': ' + fmt(inv.total - inv.paid) : '') + '\n' + t('receipt.thanks');
 }
 function receiptPrintHtml(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var row = function (a, b2) { return '<div style="display:flex;justify-content:space-between;gap:8px"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
-  return '<div dir="rtl" style="font-family:monospace;width:280px;margin:0 auto;font-size:13px">' +
-    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>فاتورة رقم ' + inv.number + (c ? '<br>العميل: ' + esc(c.name) : '') + '</div><hr>' +
+  return '<div dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '" style="font-family:monospace;width:280px;margin:0 auto;font-size:13px">' +
+    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>' + t('receipt.invoiceNo') + ' ' + inv.number + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
     inv.lines.map(function (l) { return row(esc(l.name) + ' × ' + qtyTxt(l.qty), fmt(l.total)); }).join('') + '<hr>' +
-    (inv.tax ? row('قبل الضريبة', fmt(inv.subtotal)) + row('الضريبة', fmt(inv.tax)) : '') +
-    '<b>' + row('المجموع', fmt(inv.total)) + '</b>' + row('الدفع', METHODS[inv.method]) +
-    (inv.method === 'credit' ? row('المدفوع', fmt(inv.paid)) + row('المتبقي', fmt(inv.total - inv.paid)) : '') +
-    '<hr><div style="text-align:center">شكرًا لزيارتكم</div></div>';
+    (inv.tax ? row(t('sale.beforeTax'), fmt(inv.subtotal)) + row(t('sale.tax'), fmt(inv.tax)) : '') +
+    '<b>' + row(t('sale.total'), fmt(inv.total)) + '</b>' + row(t('sale.payMethod'), methodLabel(inv.method)) +
+    (inv.method === 'credit' ? row(t('receipt.paidAmount'), fmt(inv.paid)) + row(t('receipt.remaining'), fmt(inv.total - inv.paid)) : '') +
+    '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
 function showReceipt(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
-  var h = '<div class="paper" dir="rtl"><div class="c"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>فاتورة رقم <span class="num">' + inv.number + '</span>' + (c ? '<br>العميل: ' + esc(c.name) : '') + '</div><hr>' +
+  var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '"><div class="c"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
     inv.lines.map(function (l) { return '<div class="l"><span>' + esc(l.name) + ' × <span class="num">' + qtyTxt(l.qty) + '</span></span><span>' + m(l.total) + '</span></div>'; }).join('') + '<hr>' +
-    (inv.tax ? '<div class="l"><span>قبل الضريبة</span><span>' + m(inv.subtotal) + '</span></div><div class="l"><span>الضريبة</span><span>' + m(inv.tax) + '</span></div>' : '') +
-    '<div class="l"><b>المجموع</b><b>' + m(inv.total) + '</b></div><div class="l"><span>الدفع</span><span>' + METHODS[inv.method] + '</span></div>' +
-    (inv.method === 'credit' ? '<div class="l"><span>المدفوع</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>المتبقي على العميل</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
-    '<hr><div class="c">شكرًا لزيارتكم</div></div>' +
-    '<div class="note">زر "طباعة" يفتح قائمة الطباعة الحقيقية في الهاتف. إذا كان عندك تطبيق RawBT (مجاني، لطابعات البلوتوث الحرارية) مثبّتًا ومُقرَّنًا بالطابعة، يطبع مباشرة عليها من هذه القائمة.</div>' +
-    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="printReceipt" data-id="' + inv.id + '">🖶 طباعة</button><button type="button" class="btn primary" data-act="closeSheet">بيع جديد</button></div>';
-  openSheet('تم حفظ البيع', h);
+    (inv.tax ? '<div class="l"><span>' + t('sale.beforeTax') + '</span><span>' + m(inv.subtotal) + '</span></div><div class="l"><span>' + t('sale.tax') + '</span><span>' + m(inv.tax) + '</span></div>' : '') +
+    '<div class="l"><b>' + t('sale.total') + '</b><b>' + m(inv.total) + '</b></div><div class="l"><span>' + t('sale.payMethod') + '</span><span>' + methodLabel(inv.method) + '</span></div>' +
+    (inv.method === 'credit' ? '<div class="l"><span>' + t('receipt.paidAmount') + '</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>' + t('receipt.remainingOnCustomer') + '</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
+    '<hr><div class="c">' + t('receipt.thanks') + '</div></div>' +
+    '<div class="note">' + t('receipt.printNote') + '</div>' +
+    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="shareReceipt" data-id="' + inv.id + '">↗ ' + t('receipt.share') + '</button><button type="button" class="btn" data-act="printReceipt" data-id="' + inv.id + '">🖶 ' + t('receipt.print') + '</button></div>' +
+    '<div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-act="closeSheet">' + t('receipt.newSale') + '</button></div>';
+  openSheet(t('receipt.savedTitle'), h);
 }
 
 /* --- products --- */
 function tabProducts() {
-  return '<div style="display:flex;gap:8px;margin-top:4px"><input id="pq" type="search" placeholder="ابحث في المنتجات" aria-label="ابحث في المنتجات" autocomplete="off" value="' + esc(ui.pq) + '"><button type="button" class="btn primary" data-act="newProduct" style="white-space:nowrap">+ منتج</button></div>' +
-    '<h2 class="sec">المنتجات والمخزون</h2><div class="card" id="plist"></div>';
+  return '<div style="display:flex;gap:8px;margin-top:4px"><input id="pq" type="search" placeholder="' + t('products.searchPh') + '" aria-label="' + t('products.searchPh') + '" autocomplete="off" value="' + esc(ui.pq) + '"><button type="button" class="btn primary" data-act="newProduct" style="white-space:nowrap">' + t('products.add') + '</button></div>' +
+    '<h2 class="sec">' + t('products.title') + '</h2><div class="card" id="plist"></div>';
 }
 function listProducts() {
   var q = norm(ui.pq), list = S.products.filter(function (p) { return !q || norm(p.name).indexOf(q) !== -1; });
   document.getElementById('plist').innerHTML = list.length ? list.map(function (p) {
     var st = stockOf(p.id), low = st <= p.min * 1000;
-    return '<div class="row"><div class="grow"><div class="name">' + esc(p.name) + '</div><div class="sub">' + m(p.price) + (p.taxBp ? ' · ضريبة <span class="num">' + (p.taxBp / 100) + '%</span>' : '') + '</div></div>' +
-      '<div class="end"><span class="chip' + (low ? ' warn' : '') + '">' + qtyTxt(st) + (low ? ' ينقص' : '') + '</span></div>' +
-      '<button type="button" class="btn small" data-act="restock" data-id="' + p.id + '">+ مخزون</button></div>';
-  }).join('') : '<div class="empty">لا توجد منتجات</div>';
+    return '<div class="row"><div class="grow"><div class="name">' + esc(p.name) + '</div><div class="sub">' + m(p.price) + (p.taxBp ? ' · ' + t('products.taxPct') + ' <span class="num">' + (p.taxBp / 100) + '%</span>' : '') + '</div></div>' +
+      '<div class="end"><span class="chip' + (low ? ' warn' : '') + '">' + qtyTxt(st) + (low ? ' ' + t('sale.low') : '') + '</span></div>' +
+      '<button type="button" class="btn small" data-act="restock" data-id="' + p.id + '">' + t('products.restock') + '</button>' +
+      '<button type="button" class="btn small danger" data-act="deleteProduct" data-id="' + p.id + '">' + t('products.delete') + '</button></div>';
+  }).join('') : '<div class="empty">' + t('products.empty') + '</div>';
 }
 
 /* --- customers and suppliers: one tab, a toggle switches which list shows --- */
 function tabCustomers() {
-  var seg = '<div class="seg" role="group" aria-label="نوع الطرف" style="margin-top:4px">' +
-    '<button type="button" data-act="partyTab" data-p="customers" aria-pressed="' + (ui.partyTab === 'customers') + '">العملاء</button>' +
-    '<button type="button" data-act="partyTab" data-p="suppliers" aria-pressed="' + (ui.partyTab === 'suppliers') + '">الموردون</button></div>';
+  var seg = '<div class="seg" role="group" aria-label="' + t('party.kind') + '" style="margin-top:4px">' +
+    '<button type="button" data-act="partyTab" data-p="customers" aria-pressed="' + (ui.partyTab === 'customers') + '">' + t('party.customers') + '</button>' +
+    '<button type="button" data-act="partyTab" data-p="suppliers" aria-pressed="' + (ui.partyTab === 'suppliers') + '">' + t('party.suppliers') + '</button></div>';
   if (ui.partyTab === 'suppliers') {
     var owe = 0; S.suppliers.forEach(function (s) { var b = balanceOfSupplier(s.id); if (b > 0) owe += b; });
-    return seg + '<div class="card stat" style="margin-top:10px"><div class="k">مجموع ما ندين به للموردين</div><div class="v ' + (owe ? 'bad' : '') + '">' + m(owe) + '</div></div>' +
-      '<div style="display:flex;gap:8px;margin-top:10px"><input id="sq" type="search" placeholder="ابحث عن مورد" aria-label="ابحث عن مورد" autocomplete="off" value="' + esc(ui.sq || '') + '"><button type="button" class="btn primary" data-act="newSupplier" style="white-space:nowrap">+ مورد</button></div>' +
-      '<h2 class="sec">الموردون</h2><div class="card" id="slist"></div>';
+    return seg + '<div class="card stat" style="margin-top:10px"><div class="k">' + t('party.weOweSuppliers') + '</div><div class="v ' + (owe ? 'bad' : '') + '">' + m(owe) + '</div></div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><input id="sq" type="search" placeholder="' + t('party.searchSupplier') + '" aria-label="' + t('party.searchSupplier') + '" autocomplete="off" value="' + esc(ui.sq || '') + '"><button type="button" class="btn primary" data-act="newSupplier" style="white-space:nowrap">' + t('party.addSupplier') + '</button></div>' +
+      '<h2 class="sec">' + t('party.suppliers') + '</h2><div class="card" id="slist"></div>';
   }
   var owed = 0; S.customers.forEach(function (c) { var b = balanceOf(c.id); if (b > 0) owed += b; });
-  return seg + '<div class="card stat" style="margin-top:10px"><div class="k">مجموع ديون العملاء</div><div class="v ' + (owed ? 'bad' : '') + '">' + m(owed) + '</div></div>' +
-    '<div style="display:flex;gap:8px;margin-top:10px"><input id="cq" type="search" placeholder="ابحث عن عميل" aria-label="ابحث عن عميل" autocomplete="off" value="' + esc(ui.cq || '') + '"><button type="button" class="btn primary" data-act="newCustomer" style="white-space:nowrap">+ عميل</button></div>' +
-    '<h2 class="sec">العملاء</h2><div class="card" id="clist"></div>';
+  return seg + '<div class="card stat" style="margin-top:10px"><div class="k">' + t('party.customersOwe') + '</div><div class="v ' + (owed ? 'bad' : '') + '">' + m(owed) + '</div></div>' +
+    '<div style="display:flex;gap:8px;margin-top:10px"><input id="cq" type="search" placeholder="' + t('party.searchCustomer') + '" aria-label="' + t('party.searchCustomer') + '" autocomplete="off" value="' + esc(ui.cq || '') + '"><button type="button" class="btn primary" data-act="newCustomer" style="white-space:nowrap">' + t('party.addCustomer') + '</button></div>' +
+    '<h2 class="sec">' + t('party.customers') + '</h2><div class="card" id="clist"></div>';
 }
 function listCustomers() {
   var q = norm(ui.cq || ''), list = S.customers.filter(function (c) { return !q || norm(c.name).indexOf(q) !== -1; });
@@ -526,8 +705,8 @@ function listCustomers() {
   el.innerHTML = list.length ? list.map(function (c) {
     var b = balanceOf(c.id);
     return '<button type="button" class="row" data-act="customer" data-id="' + c.id + '" style="width:100%;border:0;background:none;text-align:start"><div class="grow"><div class="name">' + esc(c.name) + '</div><div class="sub num" dir="ltr" style="text-align:start">' + esc(c.phone || '') + '</div></div>' +
-      '<div class="end">' + (b > 0 ? '<span class="chip bad">عليه ' + m(b) + '</span>' : b < 0 ? '<span class="chip">له ' + m(-b) + '</span>' : '<span class="muted">لا دين</span>') + '</div></button>';
-  }).join('') : '<div class="empty">لا يوجد عملاء</div>';
+      '<div class="end">' + (b > 0 ? '<span class="chip bad">' + t('party.owesUs') + ' ' + m(b) + '</span>' : b < 0 ? '<span class="chip">' + t('party.creditBalance') + ' ' + m(-b) + '</span>' : '<span class="muted">' + t('party.noDebt') + '</span>') + '</div></button>';
+  }).join('') : '<div class="empty">' + t('party.noCustomers') + '</div>';
 }
 function listSuppliers() {
   var q = norm(ui.sq || ''), list = S.suppliers.filter(function (s) { return !q || norm(s.name).indexOf(q) !== -1; });
@@ -535,8 +714,8 @@ function listSuppliers() {
   el.innerHTML = list.length ? list.map(function (s) {
     var b = balanceOfSupplier(s.id);
     return '<button type="button" class="row" data-act="supplier" data-id="' + s.id + '" style="width:100%;border:0;background:none;text-align:start"><div class="grow"><div class="name">' + esc(s.name) + '</div><div class="sub num" dir="ltr" style="text-align:start">' + esc(s.phone || '') + '</div></div>' +
-      '<div class="end">' + (b > 0 ? '<span class="chip bad">نحن مدينون ' + m(b) + '</span>' : b < 0 ? '<span class="chip">دفعنا زيادة ' + m(-b) + '</span>' : '<span class="muted">لا دين</span>') + '</div></button>';
-  }).join('') : '<div class="empty">لا يوجد موردون</div>';
+      '<div class="end">' + (b > 0 ? '<span class="chip bad">' + t('party.weOwe') + ' ' + m(b) + '</span>' : b < 0 ? '<span class="chip">' + t('party.overpaid') + ' ' + m(-b) + '</span>' : '<span class="muted">' + t('party.noDebt') + '</span>') + '</div></button>';
+  }).join('') : '<div class="empty">' + t('party.noSuppliers') + '</div>';
 }
 function statementRowsParty(key, id) {
   var run = 0;
@@ -546,38 +725,38 @@ function statementRowsParty(key, id) {
 function statementRows(cid) { return statementRowsParty('cid', cid); }
 function showSupplier(sid) {
   var s = supplier(sid), b = balanceOfSupplier(sid), rows = statementRowsParty('sid', sid).reverse();
-  var h = '<div class="card stat"><div class="k">' + (b > 0 ? 'نحن مدينون' : b < 0 ? 'دفعنا أكثر من اللازم' : 'الرصيد') + '</div><div class="v ' + (b > 0 ? 'bad' : '') + '">' + m(Math.abs(b)) + '</div></div>' +
-    '<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="supplierPayment" data-id="' + sid + '">تسجيل دفعة</button><button type="button" class="btn" data-act="supplierDebt" data-id="' + sid + '">تسجيل فاتورة يدويًا</button></div>' +
-    '<h2 class="sec">كشف الحساب</h2><div class="card">' + (rows.length ? rows.map(function (r) {
-      return '<div class="row"><div class="grow"><div class="name">' + esc(r.note) + '</div><div class="sub num">' + dt(r.ts) + '</div></div><div class="end"><div class="' + (r.amount > 0 ? 'bad' : 'good') + '">' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</div><div class="sub">الرصيد ' + m(r.run) + '</div></div></div>';
-    }).join('') : '<div class="empty">لا توجد حركات بعد</div>') + '</div>' +
-    '<div class="note">تسجيل الفاتورة يدويًا الآن للمتابعة المالية فقط، ولا يزيد المخزون بعد. شراء حقيقي بخطوط أصناف يأتي في نسخة لاحقة.</div>';
+  var h = '<div class="card stat"><div class="k">' + (b > 0 ? t('party.weOweFull') : b < 0 ? t('party.overpaidFull') : t('party.balance')) + '</div><div class="v ' + (b > 0 ? 'bad' : '') + '">' + m(Math.abs(b)) + '</div></div>' +
+    '<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="supplierPayment" data-id="' + sid + '">' + t('party.recordPayment') + '</button><button type="button" class="btn" data-act="supplierDebt" data-id="' + sid + '">' + t('party.recordInvoice') + '</button></div>' +
+    '<h2 class="sec">' + t('party.statement') + '</h2><div class="card">' + (rows.length ? rows.map(function (r) {
+      return '<div class="row"><div class="grow"><div class="name">' + esc(r.note) + '</div><div class="sub num">' + dt(r.ts) + '</div></div><div class="end"><div class="' + (r.amount > 0 ? 'bad' : 'good') + '">' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</div><div class="sub">' + t('party.balance') + ' ' + m(r.run) + '</div></div></div>';
+    }).join('') : '<div class="empty">' + t('party.noMoves') + '</div>') + '</div>' +
+    '<div class="note">' + t('party.manualInvoiceNote') + '</div>';
   openSheet(s.name, h);
 }
 function showCustomer(cid) {
   var c = cust(cid), b = balanceOf(cid), rows = statementRows(cid).reverse();
-  var h = '<div class="card stat"><div class="k">' + (b > 0 ? 'عليه' : b < 0 ? 'له (دفعة مقدّمة)' : 'الرصيد') + '</div><div class="v ' + (b > 0 ? 'bad' : '') + '">' + m(Math.abs(b)) + '</div></div>' +
-    '<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="payment" data-id="' + cid + '">تسجيل دفعة</button><button type="button" class="btn" data-act="copyStatement" data-id="' + cid + '">نسخ كشف الحساب</button></div>' +
-    '<h2 class="sec">كشف الحساب</h2><div class="card">' + (rows.length ? rows.map(function (r) {
-      return '<div class="row"><div class="grow"><div class="name">' + esc(r.note) + '</div><div class="sub num">' + dt(r.ts) + '</div></div><div class="end"><div class="' + (r.amount > 0 ? 'bad' : 'good') + '">' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</div><div class="sub">الرصيد ' + m(r.run) + '</div></div></div>';
-    }).join('') : '<div class="empty">لا توجد حركات بعد</div>') + '</div>';
+  var h = '<div class="card stat"><div class="k">' + (b > 0 ? t('party.owesUsFull') : b < 0 ? t('party.creditBalanceFull') : t('party.balance')) + '</div><div class="v ' + (b > 0 ? 'bad' : '') + '">' + m(Math.abs(b)) + '</div></div>' +
+    '<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="payment" data-id="' + cid + '">' + t('party.recordPayment') + '</button><button type="button" class="btn" data-act="copyStatement" data-id="' + cid + '">' + t('party.copyStatement') + '</button></div>' +
+    '<h2 class="sec">' + t('party.statement') + '</h2><div class="card">' + (rows.length ? rows.map(function (r) {
+      return '<div class="row"><div class="grow"><div class="name">' + esc(r.note) + '</div><div class="sub num">' + dt(r.ts) + '</div></div><div class="end"><div class="' + (r.amount > 0 ? 'bad' : 'good') + '">' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</div><div class="sub">' + t('party.balance') + ' ' + m(r.run) + '</div></div></div>';
+    }).join('') : '<div class="empty">' + t('party.noMoves') + '</div>') + '</div>';
   openSheet(c.name, h);
 }
 function statementText(cid) {
   var c = cust(cid), rows = statementRows(cid);
-  return 'كشف حساب: ' + c.name + '\n' + S.settings.shop + '\n\n' + rows.map(function (r) { return dt(r.ts) + ' | ' + r.note + ' | ' + fmt(r.amount) + ' | الرصيد ' + fmt(r.run); }).join('\n') + '\n\nالمجموع المستحق: ' + fmt(balanceOf(cid));
+  return t('party.statementHeader') + ': ' + c.name + '\n' + S.settings.shop + '\n\n' + rows.map(function (r) { return dt(r.ts) + ' | ' + r.note + ' | ' + fmt(r.amount) + ' | ' + t('party.balance') + ' ' + fmt(r.run); }).join('\n') + '\n\n' + t('party.totalDue') + ': ' + fmt(balanceOf(cid));
 }
 
 /* --- cash box --- */
-var FUND_LABEL = { sale: 'بيع', customer_payment: 'دفعة عميل', expense: 'مصروف', manual_in: 'إيداع', manual_out: 'سحب', purchase: 'شراء', supplier_payment: 'دفعة مورد' };
+function fundLabel(kind) { return STR['fund.' + kind] ? t('fund.' + kind) : kind; }
 function tabCash() {
   var rows = S.fund.slice().sort(function (a, b) { return b.ts - a.ts; }).slice(0, 40);
-  return '<div class="card stat" style="margin-top:4px"><div class="k">الصندوق (النقد فقط)</div><div class="big">' + m(fundBalance()) + '</div></div>' +
-    '<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-act="fundIn">إيداع</button><button type="button" class="btn" data-act="fundOut">سحب</button><button type="button" class="btn primary" data-act="expense">مصروف</button></div>' +
-    '<h2 class="sec">آخر الحركات</h2><div class="card">' + rows.map(function (r) {
-      return '<div class="row"><div class="grow"><div class="name">' + (FUND_LABEL[r.kind] || r.kind) + (r.method !== 'cash' ? ' <span class="chip warn">' + METHODS[r.method] + '</span>' : '') + '</div><div class="sub">' + esc(r.note || '') + ' <span class="num">' + dt(r.ts) + '</span></div></div><div class="end ' + (r.amount > 0 ? 'good' : 'bad') + '"><b>' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</b></div></div>';
+  return '<div class="card stat" style="margin-top:4px"><div class="k">' + t('cash.title') + '</div><div class="big">' + m(fundBalance()) + '</div></div>' +
+    '<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-act="fundIn">' + t('cash.in') + '</button><button type="button" class="btn" data-act="fundOut">' + t('cash.out') + '</button><button type="button" class="btn primary" data-act="expense">' + t('cash.expense') + '</button></div>' +
+    '<h2 class="sec">' + t('cash.recent') + '</h2><div class="card">' + rows.map(function (r) {
+      return '<div class="row"><div class="grow"><div class="name">' + fundLabel(r.kind) + (r.method !== 'cash' ? ' <span class="chip warn">' + methodLabel(r.method) + '</span>' : '') + '</div><div class="sub">' + esc(r.note || '') + ' <span class="num">' + dt(r.ts) + '</span></div></div><div class="end ' + (r.amount > 0 ? 'good' : 'bad') + '"><b>' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</b></div></div>';
     }).join('') + '</div>' +
-    '<div class="note">الحركات بالبطاقة أو الشيك أو المحفظة تظهر هنا بوسم، ولا تدخل في رصيد الصندوق النقدي.</div>';
+    '<div class="note">' + t('cash.note') + '</div>';
 }
 
 /* --- reports --- */
@@ -591,91 +770,97 @@ function tabReports() {
   var low = S.products.filter(function (p) { return stockOf(p.id) <= p.min * 1000; });
   var owed = 0; S.customers.forEach(function (c) { var b = balanceOf(c.id); if (b > 0) owed += b; });
   var card = function (k, v) { return '<div class="card stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; };
-  return '<h2 class="sec" style="margin-top:4px">اليوم</h2><div class="grid2">' + card('المبيعات (' + n + ' فاتورة)', m(sales)) + card('الربح التقديري', m(profit)) + card('المصاريف', m(exp)) + card('ديون العملاء', m(owed)) + '</div>' +
-    '<h2 class="sec">منتجات تنقص</h2><div class="card">' + (low.length ? low.map(function (p) {
-      return '<div class="row"><div class="grow name">' + esc(p.name) + '</div><span class="chip warn">' + qtyTxt(stockOf(p.id)) + ' من ' + p.min + '</span></div>';
-    }).join('') : '<div class="empty">كل المنتجات فوق الحد الأدنى</div>') + '</div>' +
-    '<div class="note">الربح يحسب من سعر الشراء المسجّل في المنتج. في التطبيق الحقيقي يوجد 19 تقريرًا بنطاق تاريخ قابل للاختيار.</div>' +
-    '<div class="actions" style="margin-top:16px"><button type="button" class="btn danger" data-act="reset">إعادة ضبط البيانات التجريبية</button></div>';
+  return '<h2 class="sec" style="margin-top:4px">' + t('reports.today') + '</h2><div class="grid2">' + card(t('reports.salesCount') + ' (' + n + ' ' + t('reports.invoice') + ')', m(sales)) + card(t('reports.profit'), m(profit)) + card(t('reports.expenses'), m(exp)) + card(t('reports.customerDebt'), m(owed)) + '</div>' +
+    '<h2 class="sec">' + t('reports.lowStock') + '</h2><div class="card">' + (low.length ? low.map(function (p) {
+      return '<div class="row"><div class="grow name">' + esc(p.name) + '</div><span class="chip warn">' + qtyTxt(stockOf(p.id)) + ' ' + t('reports.of') + ' ' + p.min + '</span></div>';
+    }).join('') : '<div class="empty">' + t('reports.allAboveMin') + '</div>') + '</div>' +
+    '<div class="note">' + t('reports.note') + '</div>' +
+    '<div class="actions" style="margin-top:16px"><button type="button" class="btn danger" data-act="reset">' + t('reports.resetDemo') + '</button></div>';
 }
 
 /* ---------- forms in sheets ---------- */
 function field(id, label, attrs) { return '<label class="f" for="' + id + '">' + label + '</label><input id="' + id + '" name="' + id + '" ' + (attrs || '') + '>'; }
 function formProduct() {
-  openSheet('منتج جديد', '<form data-form="product">' + field('name', 'الاسم', 'type="text" required autocomplete="off"') +
-    '<div class="grid2"><div>' + field('price', 'سعر البيع (د.ج)', 'type="number" inputmode="decimal" min="0" step="0.01" required') + '</div><div>' + field('cost', 'سعر الشراء (د.ج)', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') + '</div>' +
-    '<div>' + field('tax', 'الضريبة %', 'type="number" inputmode="decimal" min="0" max="100" step="0.01" value="0"') + '</div><div>' + field('min', 'حد التنبيه', 'type="number" inputmode="numeric" min="0" step="1" value="0"') + '</div></div>' +
-    field('open', 'المخزون الحالي', 'type="number" inputmode="numeric" min="0" step="1" value="0"') +
-    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">حفظ المنتج</button></div></form>');
+  openSheet(t('form.productNew'), '<form data-form="product">' + field('name', t('form.name'), 'type="text" required autocomplete="off"') +
+    '<div class="grid2"><div>' + field('price', t('form.sellPrice') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" required') + '</div><div>' + field('cost', t('form.costPrice') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') + '</div>' +
+    '<div>' + field('tax', t('form.taxPct'), 'type="number" inputmode="decimal" min="0" max="100" step="0.01" value="0"') + '</div><div>' + field('min', t('form.minAlert'), 'type="number" inputmode="numeric" min="0" step="1" value="0"') + '</div></div>' +
+    field('open', t('form.currentStock'), 'type="number" inputmode="numeric" min="0" step="1" value="0"') +
+    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('form.saveProduct') + '</button></div></form>');
 }
 function formCustomer() {
-  openSheet('عميل جديد', '<form data-form="customer">' + field('name', 'الاسم', 'type="text" required autocomplete="off"') + field('phone', 'الهاتف', 'type="tel" inputmode="tel" autocomplete="off"') +
-    field('debt', 'دين سابق (د.ج)', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') +
-    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">حفظ العميل</button></div></form>');
+  openSheet(t('form.customerNew'), '<form data-form="customer">' + field('name', t('form.name'), 'type="text" required autocomplete="off"') + field('phone', t('form.phone'), 'type="tel" inputmode="tel" autocomplete="off"') +
+    field('debt', t('form.priorDebt') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') +
+    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('form.saveCustomer') + '</button></div></form>');
 }
 function formAmount(title, kind, extra, hidden) {
-  openSheet(title, '<form data-form="' + kind + '"' + (hidden ? ' data-id="' + hidden + '"' : '') + '>' + extra + field('amount', 'المبلغ (د.ج)', 'type="number" inputmode="decimal" min="0" step="0.01" required') +
-    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">حفظ</button></div></form>');
+  openSheet(title, '<form data-form="' + kind + '"' + (hidden ? ' data-id="' + hidden + '"' : '') + '>' + extra + field('amount', t('form.amount') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" required') +
+    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>');
 }
 function formSupplier() {
-  openSheet('مورد جديد', '<form data-form="supplier">' + field('name', 'الاسم', 'type="text" required autocomplete="off"') + field('phone', 'الهاتف', 'type="tel" inputmode="tel" autocomplete="off"') +
-    field('debt', 'دين سابق لنا عليه (د.ج)', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') +
-    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">حفظ المورد</button></div></form>');
+  openSheet(t('form.supplierNew'), '<form data-form="supplier">' + field('name', t('form.name'), 'type="text" required autocomplete="off"') + field('phone', t('form.phone'), 'type="tel" inputmode="tel" autocomplete="off"') +
+    field('debt', t('form.priorDebtOwed') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') +
+    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('form.saveSupplier') + '</button></div></form>');
 }
 function formSettings() {
   var l = lang();
-  openSheet(t('settings.title'), '<form data-form="settings">' + field('shop', 'اسم المحل (يظهر في الإيصال)', 'type="text" autocomplete="off" value="' + esc(S.settings.shop || '') + '"') +
-    '<label class="f" for="lang">اللغة / Langue</label><select id="lang" name="lang"><option value="ar"' + (l === 'ar' ? ' selected' : '') + '>العربية</option><option value="fr"' + (l === 'fr' ? ' selected' : '') + '>Français</option></select>' +
-    '<div class="note">العربية مكتملة. الفرنسية الآن تغيّر القائمة الرئيسية والعناوين فقط، وبقية الشاشات تُترجم تدريجيًا في التحديثات القادمة.</div>' +
-    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">حفظ</button></div></form>');
+  var langOpt = function (code, label) { return '<option value="' + code + '"' + (l === code ? ' selected' : '') + '>' + label + '</option>'; };
+  openSheet(t('settings.title'), '<form data-form="settings">' + field('shop', t('settings.shop'), 'type="text" autocomplete="off" value="' + esc(S.settings.shop || '') + '"') +
+    '<label class="f" for="lang">' + t('settings.lang') + '</label><select id="lang" name="lang">' + langOpt('ar', 'العربية') + langOpt('fr', 'Français') + langOpt('en', 'English') + '</select>' +
+    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
+    '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
+}
+function formDeleteProduct(p) {
+  openSheet(t('products.deleteTitle'), '<div class="note">' + t('products.deleteText') + '</div>' +
+    '<div class="actions" style="margin-top:16px"><button type="button" class="btn" data-act="closeSheet">' + t('common.cancel') + '</button><button type="button" class="btn danger" data-act="confirmDeleteProduct" data-id="' + p.id + '">' + t('products.deleteConfirm') + '</button></div>');
 }
 var HANDLERS = {
   product: function (f, fd) {
-    var name = fd.get('name').trim(); if (!name) throw new Error('اكتب اسم المنتج');
+    var name = fd.get('name').trim(); if (!name) throw new Error(t('form.productNameRequired'));
     var p = { id: nid(), name: name, price: toCents(fd.get('price')), taxBp: Math.round(parseFloat(fd.get('tax') || 0) * 100), cost: toCents(fd.get('cost')), min: parseInt(fd.get('min') || 0, 10) || 0 };
     S.products.push(p);
     var o = parseInt(fd.get('open') || 0, 10) || 0;
     if (o > 0) S.stock.push({ pid: p.id, qty: o * 1000, kind: 'opening', ts: Date.now() });
-    save(); closeSheet(); render(); toast('تمت إضافة المنتج');
+    save(); closeSheet(); render(); toast(t('form.productAdded'));
   },
   customer: function (f, fd) {
-    var name = fd.get('name').trim(); if (!name) throw new Error('اكتب اسم العميل');
+    var name = fd.get('name').trim(); if (!name) throw new Error(t('party.nameRequired'));
     var c = { id: nid(), name: name, phone: fd.get('phone').trim() };
     S.customers.push(c);
-    var d = toCents(fd.get('debt')); if (d > 0) S.ledger.push({ cid: c.id, ts: Date.now(), kind: 'opening', amount: d, note: 'دين سابق' });
-    save(); closeSheet(); render(); toast('تمت إضافة العميل');
+    var d = toCents(fd.get('debt')); if (d > 0) S.ledger.push({ cid: c.id, ts: Date.now(), kind: 'opening', amount: d, note: t('form.priorDebt') });
+    save(); closeSheet(); render(); toast(t('party.added'));
   },
   restock: function (f, fd) {
-    var q = parseInt(fd.get('amount'), 10); if (!(q > 0)) throw new Error('أدخل كمية صحيحة');
+    var q = parseInt(fd.get('amount'), 10); if (!(q > 0)) throw new Error(t('form.validQty'));
     S.stock.push({ pid: +f.dataset.id, qty: q * 1000, kind: 'receipt', ts: Date.now() });
-    save(); closeSheet(); render(); toast('تمت زيادة المخزون');
+    save(); closeSheet(); render(); toast(t('form.stockIncreased'));
   },
   payment: function (f, fd) {
     recordCustomerPayment(+f.dataset.id, toCents(fd.get('amount')), fd.get('method') || 'cash');
-    closeSheet(); render(); toast('تم تسجيل الدفعة');
+    closeSheet(); render(); toast(t('party.paymentRecorded'));
   },
-  expense: function (f, fd) { addExpense(fd.get('cat'), toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast('تم تسجيل المصروف'); },
-  fundin: function (f, fd) { addFundEntry('in', toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast('تم الإيداع'); },
-  fundout: function (f, fd) { addFundEntry('out', toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast('تم السحب'); },
+  expense: function (f, fd) { addExpense(fd.get('cat'), toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast(t('form.expenseRecorded')); },
+  fundin: function (f, fd) { addFundEntry('in', toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast(t('cash.deposited')); },
+  fundout: function (f, fd) { addFundEntry('out', toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast(t('cash.withdrawn')); },
   supplier: function (f, fd) {
-    var name = fd.get('name').trim(); if (!name) throw new Error('اكتب اسم المورد');
+    var name = fd.get('name').trim(); if (!name) throw new Error(t('party.supplierNameRequired'));
     var s = { id: nid(), name: name, phone: fd.get('phone').trim() };
     S.suppliers.push(s);
-    var d = toCents(fd.get('debt')); if (d > 0) S.ledger.push({ sid: s.id, ts: Date.now(), kind: 'opening', amount: d, note: 'دين سابق' });
-    save(); closeSheet(); render(); toast('تمت إضافة المورد');
+    var d = toCents(fd.get('debt')); if (d > 0) S.ledger.push({ sid: s.id, ts: Date.now(), kind: 'opening', amount: d, note: t('form.priorDebt') });
+    save(); closeSheet(); render(); toast(t('party.supplierAdded'));
   },
   supplierPayment: function (f, fd) {
     recordSupplierPayment(+f.dataset.id, toCents(fd.get('amount')), fd.get('method') || 'cash');
-    closeSheet(); render(); toast('تم تسجيل الدفعة');
+    closeSheet(); render(); toast(t('party.paymentRecorded'));
   },
   supplierDebt: function (f, fd) {
     recordSupplierDebt(+f.dataset.id, toCents(fd.get('amount')), (fd.get('note') || '').trim());
-    closeSheet(); render(); toast('تم تسجيل الفاتورة');
+    closeSheet(); render(); toast(t('party.invoiceRecorded'));
   },
   settings: function (f, fd) {
     S.settings.shop = (fd.get('shop') || '').trim();
-    S.settings.lang = fd.get('lang') === 'fr' ? 'fr' : 'ar';
-    save(); applyLangAttrs(); closeSheet(); render(); toast('تم حفظ الإعدادات');
+    var newLang = fd.get('lang'); if (newLang !== 'ar' && newLang !== 'fr' && newLang !== 'en') newLang = 'ar';
+    S.settings.lang = newLang;
+    save(); applyLangAttrs(); closeSheet(); render(); toast(t('form.settingsSaved'));
   }
 };
 
@@ -707,42 +892,49 @@ var ACTS = {
   },
   newProduct: formProduct,
   newCustomer: formCustomer,
-  restock: function (b) { var p = prod(+b.dataset.id); formAmount('زيادة مخزون: ' + p.name, 'restock', '', b.dataset.id); document.querySelector('label[for=amount]').textContent = 'الكمية المستلمة'; },
+  restock: function (b) { var p = prod(+b.dataset.id); formAmount(t('products.restockTitle') + ': ' + p.name, 'restock', '', b.dataset.id); document.querySelector('label[for=amount]').textContent = t('products.qtyReceived'); },
+  deleteProduct: function (b) { var p = prod(+b.dataset.id); if (p) formDeleteProduct(p); },
+  confirmDeleteProduct: function (b) { deleteProduct(+b.dataset.id); closeSheet(); render(); toast(t('products.deleted')); },
   customer: function (b) { showCustomer(+b.dataset.id); },
   payment: function (b) {
-    formAmount('تسجيل دفعة', 'payment', '<label class="f" for="method">طريقة الدفع</label><select id="method" name="method"><option value="cash">نقدًا</option><option value="card">بطاقة</option><option value="cheque">شيك</option><option value="wallet">محفظة</option></select>', b.dataset.id);
+    formAmount(t('party.recordPayment'), 'payment', '<label class="f" for="method">' + t('sale.payMethod') + '</label><select id="method" name="method">' + methodOptions('cash', true) + '</select>', b.dataset.id);
   },
   copyStatement: function (b) {
     var text = statementText(+b.dataset.id);
-    var show = function () { openSheet('كشف الحساب', '<textarea id="st" rows="10" readonly>' + esc(text) + '</textarea><div class="note">انسخ النص وأرسله عبر واتساب.</div>'); document.getElementById('st').select(); };
-    try { navigator.clipboard.writeText(text).then(function () { toast('تم نسخ كشف الحساب'); }, show); } catch (e) { show(); }
+    var show = function () { openSheet(t('party.statement'), '<textarea id="st" rows="10" readonly>' + esc(text) + '</textarea><div class="note">' + t('party.sendWhatsapp') + '</div>'); document.getElementById('st').select(); };
+    try { navigator.clipboard.writeText(text).then(function () { toast(t('party.statementCopied')); }, show); } catch (e) { show(); }
+  },
+  shareReceipt: function (b) {
+    var inv = invById(+b.dataset.id); if (!inv) return;
+    var text = receiptText(inv);
+    var show = function () { openSheet(t('receipt.textTitle'), '<textarea id="rt" rows="10" readonly>' + esc(text) + '</textarea><div class="note">' + t('receipt.textNote') + '</div>'); document.getElementById('rt').select(); };
+    if (navigator.share) { navigator.share({ text: text }).catch(function () {}); }
+    else { try { navigator.clipboard.writeText(text).then(function () { toast(t('receipt.textCopied')); }, show); } catch (e) { show(); } }
   },
   printReceipt: function (b) {
     var inv = invById(+b.dataset.id); if (!inv) return;
     var P = window.Capacitor && Capacitor.Plugins && (Capacitor.Plugins.Printer || Capacitor.Plugins.CapacitorPrinter);
     if (P && P.printHtml) {
-      P.printHtml({ html: receiptPrintHtml(inv), name: 'فاتورة-' + inv.number }).catch(function () { toast('تعذّرت الطباعة، جرّب المشاركة بدل ذلك'); });
+      P.printHtml({ html: receiptPrintHtml(inv), name: t('receipt.invoiceNo') + '-' + inv.number }).catch(function () { toast(t('receipt.printFailed')); });
       return;
     }
-    var text = receiptText(inv);
-    var show = function () { openSheet('نص الإيصال', '<textarea id="rt" rows="10" readonly>' + esc(text) + '</textarea><div class="note">لم يُعثر على خدمة طباعة على هذا الجهاز (هذا طبيعي في معاينة المتصفح). انسخ النص وأرسله إلى تطبيق الطباعة أو واتساب.</div>'); document.getElementById('rt').select(); };
-    if (navigator.share) { navigator.share({ text: text }).catch(function () {}); }
-    else { try { navigator.clipboard.writeText(text).then(function () { toast('تم نسخ نص الإيصال'); }, show); } catch (e) { show(); } }
+    toast(t('receipt.noPrinter'));
   },
-  fundIn: function () { formAmount('إيداع في الصندوق', 'fundin', field('note', 'ملاحظة', 'type="text" autocomplete="off"')); },
-  fundOut: function () { formAmount('سحب من الصندوق', 'fundout', field('note', 'ملاحظة', 'type="text" autocomplete="off"')); },
+  fundIn: function () { formAmount(t('cash.inTitle'), 'fundin', field('note', t('common.note'), 'type="text" autocomplete="off"')); },
+  fundOut: function () { formAmount(t('cash.outTitle'), 'fundout', field('note', t('common.note'), 'type="text" autocomplete="off"')); },
   expense: function () {
-    formAmount('مصروف جديد', 'expense', '<label class="f" for="cat">النوع</label><select id="cat" name="cat"><option>كراء</option><option>كهرباء وماء</option><option>أجور</option><option>نقل</option><option>أخرى</option></select>' + field('note', 'ملاحظة', 'type="text" autocomplete="off"'));
+    var cats = ['rent', 'utilities', 'wages', 'transport', 'other'];
+    formAmount(t('form.expenseNew'), 'expense', '<label class="f" for="cat">' + t('form.category') + '</label><select id="cat" name="cat">' + cats.map(function (c) { return '<option>' + t('cat.' + c) + '</option>'; }).join('') + '</select>' + field('note', t('common.note'), 'type="text" autocomplete="off"'));
   },
   partyTab: function (b) { ui.partyTab = b.dataset.p; render(); },
   newSupplier: formSupplier,
   supplier: function (b) { showSupplier(+b.dataset.id); },
   supplierPayment: function (b) {
-    formAmount('تسجيل دفعة لمورد', 'supplierPayment', '<label class="f" for="method">طريقة الدفع</label><select id="method" name="method"><option value="cash">نقدًا</option><option value="card">بطاقة</option><option value="cheque">شيك</option><option value="wallet">محفظة</option></select>', b.dataset.id);
+    formAmount(t('form.supplierPaymentTitle'), 'supplierPayment', '<label class="f" for="method">' + t('sale.payMethod') + '</label><select id="method" name="method">' + methodOptions('cash', true) + '</select>', b.dataset.id);
   },
-  supplierDebt: function (b) { formAmount('تسجيل فاتورة مورد (يدوي)', 'supplierDebt', field('note', 'ملاحظة (مثلاً: فاتورة رقم ...)', 'type="text" autocomplete="off"'), b.dataset.id); },
+  supplierDebt: function (b) { formAmount(t('form.supplierInvoiceTitle'), 'supplierDebt', field('note', t('form.invoiceNotePh'), 'type="text" autocomplete="off"'), b.dataset.id); },
   settings: formSettings,
-  reset: function () { S = seed(); ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash'; save(); render(); toast('عادت البيانات التجريبية'); }
+  reset: function () { S = seed(); ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash'; save(); applyLangAttrs(); render(); toast(t('reports.resetDone')); }
 };
 document.addEventListener('click', function (e) {
   var b = e.target.closest('[data-act]'); if (!b || !ACTS[b.dataset.act]) return;

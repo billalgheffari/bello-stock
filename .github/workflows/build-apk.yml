@@ -25,6 +25,14 @@ jobs:
       - name: Create the Android project
         run: npx cap add android
 
+      - name: Stamp the app version from package.json onto the Android project
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          CODE=$(node -p "var v=require('./package.json').version.split('.').map(Number); v[0]*10000+v[1]*100+v[2]")
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" android/app/build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode $CODE/" android/app/build.gradle
+          grep -E "versionName|versionCode" android/app/build.gradle
+
       - name: Copy the web app into it
         run: npx cap sync android
 

@@ -908,6 +908,8 @@ var ACTS = {
     var inv = invById(+b.dataset.id); if (!inv) return;
     var text = receiptText(inv);
     var show = function () { openSheet(t('receipt.textTitle'), '<textarea id="rt" rows="10" readonly>' + esc(text) + '</textarea><div class="note">' + t('receipt.textNote') + '</div>'); document.getElementById('rt').select(); };
+    var ShareP = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
+    if (ShareP && ShareP.share) { ShareP.share({ text: text }).catch(function () {}); return; }
     if (navigator.share) { navigator.share({ text: text }).catch(function () {}); }
     else { try { navigator.clipboard.writeText(text).then(function () { toast(t('receipt.textCopied')); }, show); } catch (e) { show(); } }
   },

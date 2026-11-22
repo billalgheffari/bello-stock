@@ -162,7 +162,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.2.1';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -240,6 +240,13 @@ var STR = {
   'receipt.textCopied': { ar: 'تم نسخ نص الإيصال', fr: 'Texte du reçu copié', en: 'Receipt text copied' },
   'receipt.textTitle': { ar: 'نص الإيصال', fr: 'Texte du reçu', en: 'Receipt text' },
   'receipt.textNote': { ar: 'انسخ النص وأرسله إلى تطبيق الطباعة أو واتساب.', fr: 'Copiez le texte et envoyez-le à l’application d’impression ou à WhatsApp.', en: 'Copy the text and send it to a print app or WhatsApp.' },
+  'receipt.chooseFormatTitle': { ar: 'اختر نوع المشاركة', fr: 'Choisissez le format du partage', en: 'Choose a share format' },
+  'receipt.asText': { ar: 'نص', fr: 'Texte', en: 'Text' },
+  'receipt.asImage': { ar: 'صورة (JPG)', fr: 'Image (JPG)', en: 'Image (JPG)' },
+  'receipt.asPdf': { ar: 'PDF', fr: 'PDF', en: 'PDF' },
+  'receipt.preparing': { ar: 'جارٍ التحضير...', fr: 'Préparation...', en: 'Preparing...' },
+  'receipt.shareFailed': { ar: 'تعذّرت المشاركة بهذا الشكل، جرّب النص', fr: 'Échec du partage sous ce format, essayez le texte', en: 'Sharing in this format failed, try text instead' },
+  'receipt.saveToView': { ar: 'لا يمكن مشاركة الملف مباشرة هنا (معاينة المتصفح). هذه معاينة الصورة:', fr: 'Le fichier ne peut pas être partagé directement ici (aperçu navigateur). Voici un aperçu de l’image :', en: 'The file can’t be shared directly here (browser preview). Here’s a preview of the image:' },
   'products.searchPh': { ar: 'ابحث في المنتجات', fr: 'Rechercher un produit', en: 'Search products' },
   'products.add': { ar: '+ منتج', fr: '+ Produit', en: '+ Product' },
   'products.title': { ar: 'المنتجات والمخزون', fr: 'Produits et stock', en: 'Products and stock' },
@@ -653,6 +660,64 @@ function receiptPrintHtml(inv) {
     (inv.method === 'credit' ? row(t('receipt.paidAmount'), fmt(inv.paid)) + row(t('receipt.remaining'), fmt(inv.total - inv.paid)) : '') +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
+var _loadedScripts = {};
+function loadScript(src) {
+  if (_loadedScripts[src]) return _loadedScripts[src];
+  _loadedScripts[src] = new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src; s.onload = function () { resolve(); }; s.onerror = function () { reject(new Error('load failed: ' + src)); };
+    document.head.appendChild(s);
+  });
+  return _loadedScripts[src];
+}
+function renderReceiptCanvas(inv) {
+  return loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js').then(function () {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:16px';
+    box.innerHTML = receiptPrintHtml(inv);
+    document.body.appendChild(box);
+    return window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff' }).then(function (canvas) {
+      document.body.removeChild(box);
+      return canvas;
+    }, function (err) { document.body.removeChild(box); throw err; });
+  });
+}
+function dataUriBody(s) { var i = s.indexOf(','); return i === -1 ? s : s.slice(i + 1); }
+function shareFilePreviewFallback(dataUrl) {
+  openSheet(t('receipt.chooseFormatTitle'), '<div class="note">' + t('receipt.saveToView') + '</div><img src="' + dataUrl + '" style="max-width:100%;border:1px solid #ddd;border-radius:8px;margin-top:8px">');
+}
+function shareReceiptAs(inv, kind) {
+  if (kind === 'text') { ACTS.shareReceipt({ dataset: { id: inv.id } }); return; }
+  toast(t('receipt.preparing'));
+  renderReceiptCanvas(inv).then(function (canvas) {
+    if (kind === 'jpg') {
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      return shareDataFile(dataUrl, 'image/jpeg', 'receipt-' + inv.number + '.jpg', dataUrl);
+    }
+    return loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js').then(function () {
+      var jsPDF = window.jspdf.jsPDF;
+      var doc = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+      doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, canvas.width, canvas.height);
+      var pdfUri = doc.output('datauristring');
+      return shareDataFile(pdfUri, 'application/pdf', 'receipt-' + inv.number + '.pdf', canvas.toDataURL('image/jpeg', 0.92));
+    });
+  }).catch(function () { toast(t('receipt.shareFailed')); });
+}
+function shareDataFile(dataUrl, mime, filename, previewDataUrl) {
+  var FS = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
+  var ShareP = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
+  if (FS && FS.writeFile && ShareP && ShareP.share) {
+    return FS.writeFile({ path: filename, data: dataUriBody(dataUrl), directory: 'CACHE', recursive: true }).then(function (res) {
+      return ShareP.share({ url: res.uri, files: [res.uri] }).catch(function () {});
+    });
+  }
+  shareFilePreviewFallback(previewDataUrl);
+  return Promise.resolve();
+}
+function formShareChooser(inv) {
+  var opt = function (kind, label) { return '<button type="button" class="btn" style="width:100%;margin-top:8px" data-act="shareAs" data-kind="' + kind + '" data-id="' + inv.id + '">' + label + '</button>'; };
+  openSheet(t('receipt.chooseFormatTitle'), opt('text', t('receipt.asText')) + opt('jpg', t('receipt.asImage')) + opt('pdf', t('receipt.asPdf')));
+}
 function showReceipt(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '"><div class="c"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
@@ -662,7 +727,7 @@ function showReceipt(inv) {
     (inv.method === 'credit' ? '<div class="l"><span>' + t('receipt.paidAmount') + '</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>' + t('receipt.remainingOnCustomer') + '</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
     '<hr><div class="c">' + t('receipt.thanks') + '</div></div>' +
     '<div class="note">' + t('receipt.printNote') + '</div>' +
-    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="shareReceipt" data-id="' + inv.id + '">↗ ' + t('receipt.share') + '</button><button type="button" class="btn" data-act="printReceipt" data-id="' + inv.id + '">🖶 ' + t('receipt.print') + '</button></div>' +
+    '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="shareChooser" data-id="' + inv.id + '">↗ ' + t('receipt.share') + '</button><button type="button" class="btn" data-act="printReceipt" data-id="' + inv.id + '">🖶 ' + t('receipt.print') + '</button></div>' +
     '<div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-act="closeSheet">' + t('receipt.newSale') + '</button></div>';
   openSheet(t('receipt.savedTitle'), h);
 }
@@ -921,6 +986,15 @@ var ACTS = {
       return;
     }
     toast(t('receipt.noPrinter'));
+  },
+  shareChooser: function (b) {
+    var inv = invById(+b.dataset.id); if (!inv) return;
+    formShareChooser(inv);
+  },
+  shareAs: function (b) {
+    var inv = invById(+b.dataset.id); if (!inv) return;
+    closeSheet();
+    shareReceiptAs(inv, b.dataset.kind);
   },
   fundIn: function () { formAmount(t('cash.inTitle'), 'fundin', field('note', t('common.note'), 'type="text" autocomplete="off"')); },
   fundOut: function () { formAmount(t('cash.outTitle'), 'fundout', field('note', t('common.note'), 'type="text" autocomplete="off"')); },

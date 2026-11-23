@@ -36,6 +36,11 @@ jobs:
       - name: Copy the web app into it
         run: npx cap sync android
 
+      - name: Use the same signing key on every build (so updates install in place)
+        run: |
+          mkdir -p "$HOME/.android"
+          cp ci-debug.keystore "$HOME/.android/debug.keystore"
+
       - name: Build the debug APK
         run: |
           cd android

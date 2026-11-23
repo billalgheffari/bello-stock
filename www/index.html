@@ -60,7 +60,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.num { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate-override; }
+.num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; }
 
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 12px 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
@@ -162,7 +162,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.4';
+var APP_VERSION = '1.2.1';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -189,12 +189,7 @@ var STR = {
   'home.reports': { ar: 'التقارير', fr: 'Rapports', en: 'Reports' },
   'settings.title': { ar: 'الإعدادات', fr: 'Paramètres', en: 'Settings' },
   'settings.shop': { ar: 'اسم المحل (يظهر في الإيصال)', fr: 'Nom du magasin (affiché sur le reçu)', en: 'Shop name (shown on the receipt)' },
-  'settings.phone': { ar: 'رقم الهاتف (يظهر في الإيصال)', fr: 'Numéro de téléphone (affiché sur le reçu)', en: 'Phone number (shown on the receipt)' },
-  'settings.address': { ar: 'عنوان المحل (يظهر في الإيصال)', fr: 'Adresse du magasin (affichée sur le reçu)', en: 'Shop address (shown on the receipt)' },
   'settings.lang': { ar: 'اللغة', fr: 'Langue', en: 'Language' },
-  'settings.country': { ar: 'الدولة', fr: 'Pays', en: 'Country' },
-  'settings.currency': { ar: 'العملة', fr: 'Devise', en: 'Currency' },
-  'settings.currencyNote': { ar: 'تتغيّر تلقائيًا حسب الدولة، ويمكنك تبديلها يدويًا.', fr: 'Change automatiquement selon le pays ; vous pouvez la modifier manuellement.', en: 'Changes automatically with the country; you can override it manually.' },
   'settings.version': { ar: 'الإصدار', fr: 'Version', en: 'Version' },
   'titles.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
   'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits', en: 'Stock and products' },
@@ -207,7 +202,7 @@ var STR = {
   'method.cheque': { ar: 'شيك', fr: 'Chèque', en: 'Cheque' },
   'method.wallet': { ar: 'محفظة', fr: 'Portefeuille', en: 'Wallet' },
   'sale.searchLabel': { ar: 'ابحث عن منتج', fr: 'Rechercher un produit', en: 'Search a product' },
-  'sale.searchPh': { ar: 'انقر للكتابة...', fr: 'Touchez pour écrire...', en: 'Tap to type...' },
+  'sale.searchPh': { ar: 'حليب، خبز، قهوة...', fr: 'Lait, pain, café...', en: 'Milk, bread, coffee...' },
   'sale.cart': { ar: 'السلة', fr: 'Panier', en: 'Cart' },
   'sale.stock': { ar: 'المخزون', fr: 'Stock', en: 'Stock' },
   'sale.low': { ar: 'ينقص', fr: 'faible', en: 'low' },
@@ -252,10 +247,6 @@ var STR = {
   'receipt.preparing': { ar: 'جارٍ التحضير...', fr: 'Préparation...', en: 'Preparing...' },
   'receipt.shareFailed': { ar: 'تعذّرت المشاركة بهذا الشكل، جرّب النص', fr: 'Échec du partage sous ce format, essayez le texte', en: 'Sharing in this format failed, try text instead' },
   'receipt.saveToView': { ar: 'لا يمكن مشاركة الملف مباشرة هنا (معاينة المتصفح). هذه معاينة الصورة:', fr: 'Le fichier ne peut pas être partagé directement ici (aperçu navigateur). Voici un aperçu de l’image :', en: 'The file can’t be shared directly here (browser preview). Here’s a preview of the image:' },
-  'receipt.colItem': { ar: 'المنتج', fr: 'Produit', en: 'Item' },
-  'receipt.colQty': { ar: 'الكمية', fr: 'Qté', en: 'Qty' },
-  'receipt.colUnit': { ar: 'سعر الوحدة', fr: 'Prix unitaire', en: 'Unit price' },
-  'receipt.colTotal': { ar: 'المجموع', fr: 'Total', en: 'Total' },
   'products.searchPh': { ar: 'ابحث في المنتجات', fr: 'Rechercher un produit', en: 'Search products' },
   'products.add': { ar: '+ منتج', fr: '+ Produit', en: '+ Product' },
   'products.title': { ar: 'المنتجات والمخزون', fr: 'Produits et stock', en: 'Products and stock' },
@@ -370,105 +361,7 @@ var STR = {
   'cat.other': { ar: 'أخرى', fr: 'Autre', en: 'Other' }
 };
 function t(key) { var e = STR[key]; return (e && (e[lang()] || e.ar)) || key; }
-var CURRENCIES = {
-  DZD: 'د.ج', MAD: 'د.م.', TND: 'د.ت', LYD: 'د.ل', EGP: 'ج.م', MRU: 'أ.م',
-  SAR: 'ر.س', AED: 'د.إ', QAR: 'ر.ق', KWD: 'د.ك', BHD: 'د.ب', OMR: 'ر.ع',
-  JOD: 'د.أ', LBP: 'ل.ل', IQD: 'د.ع', SYP: 'ل.س', YER: 'ر.ي', SDG: 'ج.س',
-  ILS: '₪', TRY: '₺', XOF: 'CFA', XAF: 'FCFA', NGN: '₦', GHS: '₵',
-  KES: 'KSh', ETB: 'Br', ZAR: 'R', EUR: '€', GBP: '£', CHF: 'CHF',
-  USD: '$', CAD: 'CA$', CNY: '¥', INR: '₹'
-};
-var CURRENCY_NAMES = {
-  DZD: { ar: 'دينار جزائري', fr: 'Dinar algérien', en: 'Algerian Dinar' },
-  MAD: { ar: 'درهم مغربي', fr: 'Dirham marocain', en: 'Moroccan Dirham' },
-  TND: { ar: 'دينار تونسي', fr: 'Dinar tunisien', en: 'Tunisian Dinar' },
-  LYD: { ar: 'دينار ليبي', fr: 'Dinar libyen', en: 'Libyan Dinar' },
-  EGP: { ar: 'جنيه مصري', fr: 'Livre égyptienne', en: 'Egyptian Pound' },
-  MRU: { ar: 'أوقية موريتانية', fr: 'Ouguiya mauritanienne', en: 'Mauritanian Ouguiya' },
-  SAR: { ar: 'ريال سعودي', fr: 'Riyal saoudien', en: 'Saudi Riyal' },
-  AED: { ar: 'درهم إماراتي', fr: 'Dirham des Émirats', en: 'UAE Dirham' },
-  QAR: { ar: 'ريال قطري', fr: 'Riyal qatari', en: 'Qatari Riyal' },
-  KWD: { ar: 'دينار كويتي', fr: 'Dinar koweïtien', en: 'Kuwaiti Dinar' },
-  BHD: { ar: 'دينار بحريني', fr: 'Dinar bahreïni', en: 'Bahraini Dinar' },
-  OMR: { ar: 'ريال عُماني', fr: 'Riyal omanais', en: 'Omani Rial' },
-  JOD: { ar: 'دينار أردني', fr: 'Dinar jordanien', en: 'Jordanian Dinar' },
-  LBP: { ar: 'ليرة لبنانية', fr: 'Livre libanaise', en: 'Lebanese Pound' },
-  IQD: { ar: 'دينار عراقي', fr: 'Dinar irakien', en: 'Iraqi Dinar' },
-  SYP: { ar: 'ليرة سورية', fr: 'Livre syrienne', en: 'Syrian Pound' },
-  YER: { ar: 'ريال يمني', fr: 'Riyal yéménite', en: 'Yemeni Rial' },
-  SDG: { ar: 'جنيه سوداني', fr: 'Livre soudanaise', en: 'Sudanese Pound' },
-  ILS: { ar: 'شيكل', fr: 'Shekel', en: 'Israeli Shekel' },
-  TRY: { ar: 'ليرة تركية', fr: 'Livre turque', en: 'Turkish Lira' },
-  XOF: { ar: 'فرنك غرب إفريقيا', fr: 'Franc CFA (UEMOA)', en: 'West African CFA franc' },
-  XAF: { ar: 'فرنك وسط إفريقيا', fr: 'Franc CFA (CEMAC)', en: 'Central African CFA franc' },
-  NGN: { ar: 'نايرا نيجيرية', fr: 'Naira nigérian', en: 'Nigerian Naira' },
-  GHS: { ar: 'سيدي غاني', fr: 'Cedi ghanéen', en: 'Ghanaian Cedi' },
-  KES: { ar: 'شلن كيني', fr: 'Shilling kényan', en: 'Kenyan Shilling' },
-  ETB: { ar: 'بير إثيوبي', fr: 'Birr éthiopien', en: 'Ethiopian Birr' },
-  ZAR: { ar: 'راند جنوب إفريقي', fr: 'Rand sud-africain', en: 'South African Rand' },
-  EUR: { ar: 'يورو', fr: 'Euro', en: 'Euro' },
-  GBP: { ar: 'جنيه إسترليني', fr: 'Livre sterling', en: 'British Pound' },
-  CHF: { ar: 'فرنك سويسري', fr: 'Franc suisse', en: 'Swiss Franc' },
-  USD: { ar: 'دولار أمريكي', fr: 'Dollar américain', en: 'US Dollar' },
-  CAD: { ar: 'دولار كندي', fr: 'Dollar canadien', en: 'Canadian Dollar' },
-  CNY: { ar: 'يوان صيني', fr: 'Yuan chinois', en: 'Chinese Yuan' },
-  INR: { ar: 'روبية هندية', fr: 'Roupie indienne', en: 'Indian Rupee' }
-};
-var COUNTRIES = [
-  { code: 'DZ', ar: 'الجزائر', fr: 'Algérie', en: 'Algeria', currency: 'DZD' },
-  { code: 'MA', ar: 'المغرب', fr: 'Maroc', en: 'Morocco', currency: 'MAD' },
-  { code: 'TN', ar: 'تونس', fr: 'Tunisie', en: 'Tunisia', currency: 'TND' },
-  { code: 'LY', ar: 'ليبيا', fr: 'Libye', en: 'Libya', currency: 'LYD' },
-  { code: 'EG', ar: 'مصر', fr: 'Égypte', en: 'Egypt', currency: 'EGP' },
-  { code: 'MR', ar: 'موريتانيا', fr: 'Mauritanie', en: 'Mauritania', currency: 'MRU' },
-  { code: 'SA', ar: 'السعودية', fr: 'Arabie saoudite', en: 'Saudi Arabia', currency: 'SAR' },
-  { code: 'AE', ar: 'الإمارات', fr: 'Émirats arabes unis', en: 'United Arab Emirates', currency: 'AED' },
-  { code: 'QA', ar: 'قطر', fr: 'Qatar', en: 'Qatar', currency: 'QAR' },
-  { code: 'KW', ar: 'الكويت', fr: 'Koweït', en: 'Kuwait', currency: 'KWD' },
-  { code: 'BH', ar: 'البحرين', fr: 'Bahreïn', en: 'Bahrain', currency: 'BHD' },
-  { code: 'OM', ar: 'عُمان', fr: 'Oman', en: 'Oman', currency: 'OMR' },
-  { code: 'JO', ar: 'الأردن', fr: 'Jordanie', en: 'Jordan', currency: 'JOD' },
-  { code: 'LB', ar: 'لبنان', fr: 'Liban', en: 'Lebanon', currency: 'LBP' },
-  { code: 'IQ', ar: 'العراق', fr: 'Irak', en: 'Iraq', currency: 'IQD' },
-  { code: 'SY', ar: 'سوريا', fr: 'Syrie', en: 'Syria', currency: 'SYP' },
-  { code: 'YE', ar: 'اليمن', fr: 'Yémen', en: 'Yemen', currency: 'YER' },
-  { code: 'SD', ar: 'السودان', fr: 'Soudan', en: 'Sudan', currency: 'SDG' },
-  { code: 'PS', ar: 'فلسطين', fr: 'Palestine', en: 'Palestine', currency: 'ILS' },
-  { code: 'TR', ar: 'تركيا', fr: 'Turquie', en: 'Turkey', currency: 'TRY' },
-  { code: 'SN', ar: 'السنغال', fr: 'Sénégal', en: 'Senegal', currency: 'XOF' },
-  { code: 'CI', ar: 'ساحل العاج', fr: "Côte d'Ivoire", en: 'Ivory Coast', currency: 'XOF' },
-  { code: 'ML', ar: 'مالي', fr: 'Mali', en: 'Mali', currency: 'XOF' },
-  { code: 'NE', ar: 'النيجر', fr: 'Niger', en: 'Niger', currency: 'XOF' },
-  { code: 'BF', ar: 'بوركينا فاسو', fr: 'Burkina Faso', en: 'Burkina Faso', currency: 'XOF' },
-  { code: 'TG', ar: 'توغو', fr: 'Togo', en: 'Togo', currency: 'XOF' },
-  { code: 'BJ', ar: 'بنين', fr: 'Bénin', en: 'Benin', currency: 'XOF' },
-  { code: 'CM', ar: 'الكاميرون', fr: 'Cameroun', en: 'Cameroon', currency: 'XAF' },
-  { code: 'GA', ar: 'الغابون', fr: 'Gabon', en: 'Gabon', currency: 'XAF' },
-  { code: 'TD', ar: 'تشاد', fr: 'Tchad', en: 'Chad', currency: 'XAF' },
-  { code: 'CG', ar: 'الكونغو', fr: 'Congo', en: 'Congo', currency: 'XAF' },
-  { code: 'NG', ar: 'نيجيريا', fr: 'Nigéria', en: 'Nigeria', currency: 'NGN' },
-  { code: 'GH', ar: 'غانا', fr: 'Ghana', en: 'Ghana', currency: 'GHS' },
-  { code: 'KE', ar: 'كينيا', fr: 'Kenya', en: 'Kenya', currency: 'KES' },
-  { code: 'ET', ar: 'إثيوبيا', fr: 'Éthiopie', en: 'Ethiopia', currency: 'ETB' },
-  { code: 'ZA', ar: 'جنوب أفريقيا', fr: 'Afrique du Sud', en: 'South Africa', currency: 'ZAR' },
-  { code: 'FR', ar: 'فرنسا', fr: 'France', en: 'France', currency: 'EUR' },
-  { code: 'DE', ar: 'ألمانيا', fr: 'Allemagne', en: 'Germany', currency: 'EUR' },
-  { code: 'ES', ar: 'إسبانيا', fr: 'Espagne', en: 'Spain', currency: 'EUR' },
-  { code: 'IT', ar: 'إيطاليا', fr: 'Italie', en: 'Italy', currency: 'EUR' },
-  { code: 'BE', ar: 'بلجيكا', fr: 'Belgique', en: 'Belgium', currency: 'EUR' },
-  { code: 'NL', ar: 'هولندا', fr: 'Pays-Bas', en: 'Netherlands', currency: 'EUR' },
-  { code: 'GB', ar: 'بريطانيا', fr: 'Royaume-Uni', en: 'United Kingdom', currency: 'GBP' },
-  { code: 'CH', ar: 'سويسرا', fr: 'Suisse', en: 'Switzerland', currency: 'CHF' },
-  { code: 'US', ar: 'الولايات المتحدة', fr: 'États-Unis', en: 'United States', currency: 'USD' },
-  { code: 'CA', ar: 'كندا', fr: 'Canada', en: 'Canada', currency: 'CAD' },
-  { code: 'CN', ar: 'الصين', fr: 'Chine', en: 'China', currency: 'CNY' },
-  { code: 'IN', ar: 'الهند', fr: 'Inde', en: 'India', currency: 'INR' },
-  { code: 'OTHER', ar: 'دولة أخرى', fr: 'Autre pays', en: 'Other country', currency: '' }
-];
-function countryOf(code) { return COUNTRIES.find(function (c) { return c.code === code; }); }
-function countryName(c) { return c[lang()] || c.ar; }
-function currencyName(code) { var e = CURRENCY_NAMES[code]; return e ? ((e[lang()] || e.ar) + ' (' + code + ')') : code; }
-function curSuffix() { var code = (S && S.settings && S.settings.currency) || 'DZD'; return CURRENCIES[code] || code; }
+function curSuffix() { return lang() === 'ar' ? 'د.ج' : 'DA'; }
 
 /* ---------- money: integer centimes, quantities in thousandths, tax in basis points ---------- */
 function fmt(c) {
@@ -478,9 +371,7 @@ function fmt(c) {
   if (f) s += ',' + String(f).padStart(2, '0');
   return (neg ? '−' : '') + s + ' ' + curSuffix();
 }
-function m(c) { return '<bdi dir="ltr" class="num">' + fmt(c) + '</bdi>'; }
-/* isolate a numeric/date run in PLAIN TEXT (no HTML) so Arabic bidi reordering can't swap the order of its digit groups */
-function iso(s) { return '⁦' + s + '⁩'; }
+function m(c) { return '<bdi class="num">' + fmt(c) + '</bdi>'; }
 function toCents(v) { var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? Math.round(n * 100) : 0; }
 /* half-up rounding on integers */
 function divRound(a, b) { return Math.floor((2 * a + b) / (2 * b)); }
@@ -502,7 +393,7 @@ function norm(s) {
 function seed() {
   var now = Date.now(), day = 86400000, da = function (n) { return n * 100; };
   var st = {
-    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', phone: '', address: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
+    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', lang: 'ar' },
     seq: { id: 100, inv: 0 },
     products: [
       { id: 1, name: 'حليب 1 لتر', price: da(70), taxBp: 0, cost: da(55), min: 10 },
@@ -536,10 +427,6 @@ function load() {
         if (!o.suppliers) o.suppliers = [];
         if (!o.settings) o.settings = { includeTax: true, shop: '' };
         if (!o.settings.lang) o.settings.lang = 'ar';
-        if (!o.settings.country) o.settings.country = 'DZ';
-        if (!o.settings.currency) o.settings.currency = 'DZD';
-        if (o.settings.phone == null) o.settings.phone = '';
-        if (o.settings.address == null) o.settings.address = '';
         return o;
       }
     }
@@ -757,35 +644,20 @@ function cartInto() {
 }
 function receiptText(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
-  var header = [S.settings.shop];
-  if (S.settings.phone) header.push(iso(S.settings.phone));
-  if (S.settings.address) header.push(S.settings.address);
-  var lines = inv.lines.map(function (l) { return l.name + '  ' + iso(qtyTxt(l.qty) + ' × ' + fmt(l.price) + ' = ' + fmt(l.total)); }).join('\n');
-  return header.join('\n') + '\n' + iso(dt(inv.ts)) + ' - ' + t('receipt.invoiceNo') + ' ' + iso(String(inv.number)) + (c ? '\n' + t('receipt.customer') + ': ' + c.name : '') +
-    '\n--------------------\n' + lines + '\n--------------------\n' + t('sale.total') + ': ' + iso(fmt(inv.total)) + '\n' + t('sale.payMethod') + ': ' + methodLabel(inv.method) +
-    (inv.method === 'credit' ? '\n' + t('receipt.paidAmount') + ': ' + iso(fmt(inv.paid)) + '\n' + t('receipt.remaining') + ': ' + iso(fmt(inv.total - inv.paid)) : '') + '\n' + t('receipt.thanks');
+  var lines = inv.lines.map(function (l) { return esc(l.name) + ' x' + qtyTxt(l.qty) + '  ' + fmt(l.total); }).join('\n');
+  return esc(S.settings.shop) + '\n' + dt(inv.ts) + ' - ' + t('receipt.invoiceNo') + ' ' + inv.number + (c ? '\n' + t('receipt.customer') + ': ' + esc(c.name) : '') +
+    '\n--------------------\n' + lines + '\n--------------------\n' + t('sale.total') + ': ' + fmt(inv.total) + '\n' + t('sale.payMethod') + ': ' + methodLabel(inv.method) +
+    (inv.method === 'credit' ? '\n' + t('receipt.paidAmount') + ': ' + fmt(inv.paid) + '\n' + t('receipt.remaining') + ': ' + fmt(inv.total - inv.paid) : '') + '\n' + t('receipt.thanks');
 }
 function receiptPrintHtml(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var row = function (a, b2) { return '<div style="display:flex;justify-content:space-between;gap:8px"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
-  var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
-  var th = 'border:1px solid #999;padding:4px 6px;background:#f2f2f2';
-  var td = 'border:1px solid #999;padding:4px 6px';
-  var rows = inv.lines.map(function (l) {
-    return '<tr><td style="' + td + '">' + esc(l.name) + '</td>' +
-      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + qtyTxt(l.qty) + '</bdi></td>' +
-      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmt(l.price) + '</bdi></td>' +
-      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmt(l.total) + '</bdi></td></tr>';
-  }).join('');
-  return '<div dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '" style="font-family:monospace;width:100%;max-width:420px;margin:0 auto;font-size:13px">' +
-    (contact ? '<div style="text-align:left;font-size:11px;line-height:1.5;margin-bottom:4px">' + contact + '</div>' : '') +
-    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br><bdi dir="ltr">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <bdi dir="ltr">' + inv.number + '</bdi>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px"><thead><tr>' +
-    '<th style="' + th + '">' + t('receipt.colItem') + '</th><th style="' + th + '">' + t('receipt.colQty') + '</th><th style="' + th + '">' + t('receipt.colUnit') + '</th><th style="' + th + '">' + t('receipt.colTotal') + '</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table><hr>' +
-    (inv.tax ? row(t('sale.beforeTax'), '<bdi dir="ltr">' + fmt(inv.subtotal) + '</bdi>') + row(t('sale.tax'), '<bdi dir="ltr">' + fmt(inv.tax) + '</bdi>') : '') +
-    '<b>' + row(t('sale.total'), '<bdi dir="ltr">' + fmt(inv.total) + '</bdi>') + '</b>' + row(t('sale.payMethod'), methodLabel(inv.method)) +
-    (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi dir="ltr">' + fmt(inv.paid) + '</bdi>') + row(t('receipt.remaining'), '<bdi dir="ltr">' + fmt(inv.total - inv.paid) + '</bdi>') : '') +
+  return '<div dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '" style="font-family:monospace;width:280px;margin:0 auto;font-size:13px">' +
+    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>' + t('receipt.invoiceNo') + ' ' + inv.number + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
+    inv.lines.map(function (l) { return row(esc(l.name) + ' × ' + qtyTxt(l.qty), fmt(l.total)); }).join('') + '<hr>' +
+    (inv.tax ? row(t('sale.beforeTax'), fmt(inv.subtotal)) + row(t('sale.tax'), fmt(inv.tax)) : '') +
+    '<b>' + row(t('sale.total'), fmt(inv.total)) + '</b>' + row(t('sale.payMethod'), methodLabel(inv.method)) +
+    (inv.method === 'credit' ? row(t('receipt.paidAmount'), fmt(inv.paid)) + row(t('receipt.remaining'), fmt(inv.total - inv.paid)) : '') +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
 var _loadedScripts = {};
@@ -801,7 +673,7 @@ function loadScript(src) {
 function renderReceiptCanvas(inv) {
   return loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js').then(function () {
     var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111;padding:16px';
+    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:16px';
     box.innerHTML = receiptPrintHtml(inv);
     document.body.appendChild(box);
     return window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff' }).then(function (canvas) {
@@ -848,22 +720,8 @@ function formShareChooser(inv) {
 }
 function showReceipt(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
-  var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
-  var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '">' +
-    (contact ? '<div style="text-align:left;font-size:11px;line-height:1.5;margin-bottom:4px">' + contact + '</div>' : '') +
-    '<div class="c"><b>' + esc(S.settings.shop) + '</b><br><bdi dir="ltr" class="num">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
-    '<th style="text-align:start;border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colItem') + '</th>' +
-    '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colQty') + '</th>' +
-    '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colUnit') + '</th>' +
-    '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colTotal') + '</th>' +
-    '</tr></thead><tbody>' +
-    inv.lines.map(function (l) {
-      return '<tr><td style="padding:3px 4px;overflow-wrap:anywhere">' + esc(l.name) + '</td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + qtyTxt(l.qty) + '</bdi></td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmt(l.price) + '</bdi></td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmt(l.total) + '</bdi></td></tr>';
-    }).join('') + '</tbody></table><hr>' +
+  var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '"><div class="c"><b>' + esc(S.settings.shop) + '</b><br>' + dt(inv.ts) + '<br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
+    inv.lines.map(function (l) { return '<div class="l"><span>' + esc(l.name) + ' × <span class="num">' + qtyTxt(l.qty) + '</span></span><span>' + m(l.total) + '</span></div>'; }).join('') + '<hr>' +
     (inv.tax ? '<div class="l"><span>' + t('sale.beforeTax') + '</span><span>' + m(inv.subtotal) + '</span></div><div class="l"><span>' + t('sale.tax') + '</span><span>' + m(inv.tax) + '</span></div>' : '') +
     '<div class="l"><b>' + t('sale.total') + '</b><b>' + m(inv.total) + '</b></div><div class="l"><span>' + t('sale.payMethod') + '</span><span>' + methodLabel(inv.method) + '</span></div>' +
     (inv.method === 'credit' ? '<div class="l"><span>' + t('receipt.paidAmount') + '</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>' + t('receipt.remainingOnCustomer') + '</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
@@ -951,7 +809,7 @@ function showCustomer(cid) {
 }
 function statementText(cid) {
   var c = cust(cid), rows = statementRows(cid);
-  return t('party.statementHeader') + ': ' + c.name + '\n' + S.settings.shop + '\n\n' + rows.map(function (r) { return iso(dt(r.ts)) + ' | ' + r.note + ' | ' + iso(fmt(r.amount)) + ' | ' + t('party.balance') + ' ' + iso(fmt(r.run)); }).join('\n') + '\n\n' + t('party.totalDue') + ': ' + iso(fmt(balanceOf(cid)));
+  return t('party.statementHeader') + ': ' + c.name + '\n' + S.settings.shop + '\n\n' + rows.map(function (r) { return dt(r.ts) + ' | ' + r.note + ' | ' + fmt(r.amount) + ' | ' + t('party.balance') + ' ' + fmt(r.run); }).join('\n') + '\n\n' + t('party.totalDue') + ': ' + fmt(balanceOf(cid));
 }
 
 /* --- cash box --- */
@@ -1011,15 +869,8 @@ function formSupplier() {
 function formSettings() {
   var l = lang();
   var langOpt = function (code, label) { return '<option value="' + code + '"' + (l === code ? ' selected' : '') + '>' + label + '</option>'; };
-  var countryOpt = function (c) { return '<option value="' + c.code + '" data-cur="' + c.currency + '"' + (S.settings.country === c.code ? ' selected' : '') + '>' + esc(countryName(c)) + '</option>'; };
-  var curOpt = function (code) { return '<option value="' + code + '"' + (S.settings.currency === code ? ' selected' : '') + '>' + esc(currencyName(code) + ' ' + CURRENCIES[code]) + '</option>'; };
   openSheet(t('settings.title'), '<form data-form="settings">' + field('shop', t('settings.shop'), 'type="text" autocomplete="off" value="' + esc(S.settings.shop || '') + '"') +
-    field('phone', t('settings.phone'), 'type="tel" inputmode="tel" autocomplete="off" value="' + esc(S.settings.phone || '') + '"') +
-    field('address', t('settings.address'), 'type="text" autocomplete="off" value="' + esc(S.settings.address || '') + '"') +
     '<label class="f" for="lang">' + t('settings.lang') + '</label><select id="lang" name="lang">' + langOpt('ar', 'العربية') + langOpt('fr', 'Français') + langOpt('en', 'English') + '</select>' +
-    '<label class="f" for="country">' + t('settings.country') + '</label><select id="country" name="country">' + COUNTRIES.map(countryOpt).join('') + '</select>' +
-    '<label class="f" for="currency">' + t('settings.currency') + '</label><select id="currency" name="currency">' + Object.keys(CURRENCIES).map(curOpt).join('') + '</select>' +
-    '<div class="note">' + t('settings.currencyNote') + '</div>' +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
     '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
 }
@@ -1072,14 +923,8 @@ var HANDLERS = {
   },
   settings: function (f, fd) {
     S.settings.shop = (fd.get('shop') || '').trim();
-    S.settings.phone = (fd.get('phone') || '').trim();
-    S.settings.address = (fd.get('address') || '').trim();
     var newLang = fd.get('lang'); if (newLang !== 'ar' && newLang !== 'fr' && newLang !== 'en') newLang = 'ar';
     S.settings.lang = newLang;
-    var newCountry = fd.get('country'); if (!countryOf(newCountry)) newCountry = 'DZ';
-    S.settings.country = newCountry;
-    var newCurrency = fd.get('currency'); if (!CURRENCIES[newCurrency]) newCurrency = 'DZD';
-    S.settings.currency = newCurrency;
     save(); applyLangAttrs(); closeSheet(); render(); toast(t('form.settingsSaved'));
   }
 };
@@ -1180,13 +1025,6 @@ document.addEventListener('input', function (e) {
   else if (id === 'paid') { ui.paid = e.target.value; }
 });
 document.addEventListener('change', function (e) { if (e.target.id === 'custSel') ui.cust = e.target.value; });
-document.addEventListener('change', function (e) {
-  if (e.target.id === 'country') {
-    var opt = e.target.selectedOptions[0], cur = opt && opt.getAttribute('data-cur');
-    var curSel = document.getElementById('currency');
-    if (cur && curSel) curSel.value = cur;
-  }
-});
 document.addEventListener('submit', function (e) {
   e.preventDefault();
   var f = e.target, h = HANDLERS[f.dataset.form]; if (!h) return;

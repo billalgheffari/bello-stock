@@ -60,7 +60,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; }
+.num { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate-override; }
 
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 12px 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
@@ -162,7 +162,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.3';
+var APP_VERSION = '1.2.4';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -207,7 +207,7 @@ var STR = {
   'method.cheque': { ar: 'شيك', fr: 'Chèque', en: 'Cheque' },
   'method.wallet': { ar: 'محفظة', fr: 'Portefeuille', en: 'Wallet' },
   'sale.searchLabel': { ar: 'ابحث عن منتج', fr: 'Rechercher un produit', en: 'Search a product' },
-  'sale.searchPh': { ar: 'حليب، خبز، قهوة...', fr: 'Lait, pain, café...', en: 'Milk, bread, coffee...' },
+  'sale.searchPh': { ar: 'انقر للكتابة...', fr: 'Touchez pour écrire...', en: 'Tap to type...' },
   'sale.cart': { ar: 'السلة', fr: 'Panier', en: 'Cart' },
   'sale.stock': { ar: 'المخزون', fr: 'Stock', en: 'Stock' },
   'sale.low': { ar: 'ينقص', fr: 'faible', en: 'low' },
@@ -478,7 +478,7 @@ function fmt(c) {
   if (f) s += ',' + String(f).padStart(2, '0');
   return (neg ? '−' : '') + s + ' ' + curSuffix();
 }
-function m(c) { return '<bdi class="num">' + fmt(c) + '</bdi>'; }
+function m(c) { return '<bdi dir="ltr" class="num">' + fmt(c) + '</bdi>'; }
 /* isolate a numeric/date run in PLAIN TEXT (no HTML) so Arabic bidi reordering can't swap the order of its digit groups */
 function iso(s) { return '⁦' + s + '⁩'; }
 function toCents(v) { var n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? Math.round(n * 100) : 0; }
@@ -768,24 +768,24 @@ function receiptText(inv) {
 function receiptPrintHtml(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var row = function (a, b2) { return '<div style="display:flex;justify-content:space-between;gap:8px"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
-  var contact = (S.settings.phone ? '<div><bdi>' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
+  var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
   var th = 'border:1px solid #999;padding:4px 6px;background:#f2f2f2';
   var td = 'border:1px solid #999;padding:4px 6px';
   var rows = inv.lines.map(function (l) {
     return '<tr><td style="' + td + '">' + esc(l.name) + '</td>' +
-      '<td style="' + td + ';text-align:center"><bdi>' + qtyTxt(l.qty) + '</bdi></td>' +
-      '<td style="' + td + ';text-align:center"><bdi>' + fmt(l.price) + '</bdi></td>' +
-      '<td style="' + td + ';text-align:center"><bdi>' + fmt(l.total) + '</bdi></td></tr>';
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + qtyTxt(l.qty) + '</bdi></td>' +
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmt(l.price) + '</bdi></td>' +
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmt(l.total) + '</bdi></td></tr>';
   }).join('');
   return '<div dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '" style="font-family:monospace;width:100%;max-width:420px;margin:0 auto;font-size:13px">' +
     (contact ? '<div style="text-align:left;font-size:11px;line-height:1.5;margin-bottom:4px">' + contact + '</div>' : '') +
-    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br><bdi>' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <bdi>' + inv.number + '</bdi>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
+    '<div style="text-align:center"><b>' + esc(S.settings.shop) + '</b><br><bdi dir="ltr">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <bdi dir="ltr">' + inv.number + '</bdi>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
     '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px"><thead><tr>' +
     '<th style="' + th + '">' + t('receipt.colItem') + '</th><th style="' + th + '">' + t('receipt.colQty') + '</th><th style="' + th + '">' + t('receipt.colUnit') + '</th><th style="' + th + '">' + t('receipt.colTotal') + '</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table><hr>' +
-    (inv.tax ? row(t('sale.beforeTax'), '<bdi>' + fmt(inv.subtotal) + '</bdi>') + row(t('sale.tax'), '<bdi>' + fmt(inv.tax) + '</bdi>') : '') +
-    '<b>' + row(t('sale.total'), '<bdi>' + fmt(inv.total) + '</bdi>') + '</b>' + row(t('sale.payMethod'), methodLabel(inv.method)) +
-    (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi>' + fmt(inv.paid) + '</bdi>') + row(t('receipt.remaining'), '<bdi>' + fmt(inv.total - inv.paid) + '</bdi>') : '') +
+    (inv.tax ? row(t('sale.beforeTax'), '<bdi dir="ltr">' + fmt(inv.subtotal) + '</bdi>') + row(t('sale.tax'), '<bdi dir="ltr">' + fmt(inv.tax) + '</bdi>') : '') +
+    '<b>' + row(t('sale.total'), '<bdi dir="ltr">' + fmt(inv.total) + '</bdi>') + '</b>' + row(t('sale.payMethod'), methodLabel(inv.method)) +
+    (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi dir="ltr">' + fmt(inv.paid) + '</bdi>') + row(t('receipt.remaining'), '<bdi dir="ltr">' + fmt(inv.total - inv.paid) + '</bdi>') : '') +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
 var _loadedScripts = {};
@@ -848,10 +848,10 @@ function formShareChooser(inv) {
 }
 function showReceipt(inv) {
   var c = inv.customerId ? cust(inv.customerId) : null;
-  var contact = (S.settings.phone ? '<div><bdi>' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
+  var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
   var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '">' +
     (contact ? '<div style="text-align:left;font-size:11px;line-height:1.5;margin-bottom:4px">' + contact + '</div>' : '') +
-    '<div class="c"><b>' + esc(S.settings.shop) + '</b><br><bdi class="num">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
+    '<div class="c"><b>' + esc(S.settings.shop) + '</b><br><bdi dir="ltr" class="num">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
     '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
     '<th style="text-align:start;border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colItem') + '</th>' +
     '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colQty') + '</th>' +
@@ -860,9 +860,9 @@ function showReceipt(inv) {
     '</tr></thead><tbody>' +
     inv.lines.map(function (l) {
       return '<tr><td style="padding:3px 4px;overflow-wrap:anywhere">' + esc(l.name) + '</td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi class="num">' + qtyTxt(l.qty) + '</bdi></td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi class="num">' + fmt(l.price) + '</bdi></td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi class="num">' + fmt(l.total) + '</bdi></td></tr>';
+        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + qtyTxt(l.qty) + '</bdi></td>' +
+        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmt(l.price) + '</bdi></td>' +
+        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmt(l.total) + '</bdi></td></tr>';
     }).join('') + '</tbody></table><hr>' +
     (inv.tax ? '<div class="l"><span>' + t('sale.beforeTax') + '</span><span>' + m(inv.subtotal) + '</span></div><div class="l"><span>' + t('sale.tax') + '</span><span>' + m(inv.tax) + '</span></div>' : '') +
     '<div class="l"><b>' + t('sale.total') + '</b><b>' + m(inv.total) + '</b></div><div class="l"><span>' + t('sale.payMethod') + '</span><span>' + methodLabel(inv.method) + '</span></div>' +

@@ -163,9 +163,9 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.5';
+var APP_VERSION = '1.2.6';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
-var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers' };
+var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
 function applyLangAttrs() {
   var l = lang();
@@ -178,6 +178,7 @@ var STR = {
   'nav.back': { ar: 'رجوع', fr: 'Retour', en: 'Back' },
   'common.close': { ar: 'إغلاق', fr: 'Fermer', en: 'Close' },
   'common.save': { ar: 'حفظ', fr: 'Enregistrer', en: 'Save' },
+  'common.and': { ar: 'و', fr: 'et', en: 'and' },
   'common.cancel': { ar: 'إلغاء', fr: 'Annuler', en: 'Cancel' },
   'common.note': { ar: 'ملاحظة', fr: 'Note', en: 'Note' },
   'home.title': { ar: 'الرئيسية', fr: 'Accueil', en: 'Home' },
@@ -196,6 +197,11 @@ var STR = {
   'settings.country': { ar: 'الدولة', fr: 'Pays', en: 'Country' },
   'settings.currency': { ar: 'العملة', fr: 'Devise', en: 'Currency' },
   'settings.currencyNote': { ar: 'تتغيّر تلقائيًا حسب الدولة، ويمكنك تبديلها يدويًا.', fr: 'Change automatiquement selon le pays ; vous pouvez la modifier manuellement.', en: 'Changes automatically with the country; you can override it manually.' },
+  'settings.officialTitle': { ar: 'معلومات رسمية (اختياري، تظهر في الفاتورة الرسمية والبروفورما فقط)', fr: 'Informations officielles (facultatif, affichées uniquement sur la facture et le proforma)', en: 'Official business info (optional, shown only on invoices and proformas)' },
+  'settings.rc': { ar: 'السجل التجاري (RC)', fr: 'Registre de commerce (RC)', en: 'Trade register (RC)' },
+  'settings.nif': { ar: 'رقم التعريف الجبائي (NIF)', fr: 'Identifiant fiscal (NIF)', en: 'Tax ID (NIF)' },
+  'settings.nis': { ar: 'رقم التعريف الإحصائي (NIS)', fr: 'Identifiant statistique (NIS)', en: 'Statistical ID (NIS)' },
+  'settings.art': { ar: 'رقم المادة الضريبية (AI)', fr: "Article d'imposition (AI)", en: 'Tax article (AI)' },
   'settings.version': { ar: 'الإصدار', fr: 'Version', en: 'Version' },
   'titles.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
   'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits', en: 'Stock and products' },
@@ -219,6 +225,12 @@ var STR = {
   'sale.dec': { ar: 'أنقص', fr: 'Diminuer', en: 'Decrease' },
   'sale.inc': { ar: 'زِد', fr: 'Augmenter', en: 'Increase' },
   'sale.payMethod': { ar: 'طريقة الدفع', fr: 'Mode de paiement', en: 'Payment method' },
+  'sale.docType': { ar: 'نوع الوثيقة', fr: 'Type de document', en: 'Document type' },
+  'sale.docInvoice': { ar: 'فاتورة', fr: 'Facture', en: 'Invoice' },
+  'sale.docProforma': { ar: 'بروفورما', fr: 'Proforma', en: 'Proforma' },
+  'sale.docReceipt': { ar: 'وصل استلام', fr: 'Reçu', en: 'Receipt' },
+  'sale.docProformaTitle': { ar: 'فاتورة بروفورما', fr: 'Facture proforma', en: 'Proforma Invoice' },
+  'receipt.numberOnly': { ar: 'رقم', fr: 'N°', en: 'No.' },
   'sale.customer': { ar: 'العميل', fr: 'Client', en: 'Customer' },
   'sale.chooseCustomer': { ar: 'اختر العميل', fr: 'Choisir le client', en: 'Choose customer' },
   'sale.customerOptional': { ar: 'العميل (اختياري، يظهر في الفاتورة)', fr: 'Client (facultatif, affiché sur le reçu)', en: 'Customer (optional, shown on receipt)' },
@@ -259,6 +271,18 @@ var STR = {
   'receipt.colQty': { ar: 'الكمية', fr: 'Qté', en: 'Qty' },
   'receipt.colUnit': { ar: 'سعر الوحدة', fr: 'Prix unitaire', en: 'Unit price' },
   'receipt.colTotal': { ar: 'المجموع', fr: 'Total', en: 'Total' },
+  'receipt.colTotalTTC': { ar: 'المجموع (شامل الضريبة)', fr: 'Total TTC', en: 'Total (incl. tax)' },
+  'receipt.colUnitHT': { ar: 'سعر الوحدة (قبل الضريبة)', fr: 'P.U HT', en: 'Unit price (excl. tax)' },
+  'receipt.colTva': { ar: 'الضريبة %', fr: 'TVA %', en: 'VAT %' },
+  'receipt.exempt': { ar: 'معفى', fr: 'Exonéré', en: 'Exempt' },
+  'receipt.walkIn': { ar: 'زبون عادي', fr: 'Client passager', en: 'Walk-in customer' },
+  'receipt.client': { ar: 'الزبون', fr: 'Client', en: 'Customer' },
+  'receipt.totalHT': { ar: 'المجموع خارج الرسم (Total HT)', fr: 'Total HT', en: 'Total excl. tax (HT)' },
+  'receipt.totalTVA': { ar: 'الرسم على القيمة المضافة (Total TVA)', fr: 'Total TVA', en: 'Total VAT' },
+  'receipt.totalTTC': { ar: 'المجموع الكلي شامل الرسوم (TTC)', fr: 'Total TTC', en: 'Total incl. tax (TTC)' },
+  'receipt.amountWordsPrefix': { ar: 'أوقفت هذه الفاتورة عند مبلغ', fr: 'Arrêtée la présente facture à la somme de', en: 'This invoice is settled at the amount of' },
+  'receipt.centime': { ar: 'سنتيم', fr: 'centimes', en: 'cents' },
+  'receipt.signatureBox': { ar: 'ختم وتوقيع البائع', fr: 'Cachet et signature du vendeur', en: 'Seller stamp and signature' },
   'products.searchPh': { ar: 'ابحث في المنتجات', fr: 'Rechercher un produit', en: 'Search products' },
   'products.add': { ar: '+ منتج', fr: '+ Produit', en: '+ Product' },
   'products.title': { ar: 'المنتجات والمخزون', fr: 'Produits et stock', en: 'Products and stock' },
@@ -426,6 +450,126 @@ var CURRENCY_NAMES = {
   CNY: { ar: 'يوان صيني', fr: 'Yuan chinois', en: 'Chinese Yuan' },
   INR: { ar: 'روبية هندية', fr: 'Roupie indienne', en: 'Indian Rupee' }
 };
+
+/* ---------- amount-in-words, for the official invoice/proforma template ---------- */
+var AR_ONES = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
+var AR_TEENS = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
+var AR_TENS = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+var AR_HUNDREDS = ['', 'مائة', 'مئتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+function arGroup(n) {
+  var h = Math.floor(n / 100), r = n % 100, parts = [];
+  if (h) parts.push(AR_HUNDREDS[h]);
+  if (r) {
+    if (r < 10) parts.push(AR_ONES[r]);
+    else if (r < 20) parts.push(AR_TEENS[r - 10]);
+    else {
+      var td = Math.floor(r / 10), od = r % 10;
+      parts.push(od ? AR_ONES[od] + ' و' + AR_TENS[td] : AR_TENS[td]);
+    }
+  }
+  return parts.join(' و');
+}
+function arScale(n, one, two, fewPl, manyForm) {
+  if (!n) return '';
+  if (n === 1) return one;
+  if (n === 2) return two;
+  var mod = n % 100;
+  if (mod >= 3 && mod <= 10) return arGroup(n) + ' ' + fewPl;
+  return arGroup(n) + ' ' + manyForm;
+}
+function numberToWordsAr(n) {
+  if (n === 0) return 'صفر';
+  var billion = Math.floor(n / 1e9); n %= 1e9;
+  var million = Math.floor(n / 1e6); n %= 1e6;
+  var thousand = Math.floor(n / 1e3); n %= 1e3;
+  var parts = [];
+  if (billion) parts.push(arScale(billion, 'مليار', 'ملياران', 'مليارات', 'مليار'));
+  if (million) parts.push(arScale(million, 'مليون', 'مليونان', 'ملايين', 'مليون'));
+  if (thousand) parts.push(arScale(thousand, 'ألف', 'ألفان', 'آلاف', 'ألف'));
+  if (n) parts.push(arGroup(n));
+  return parts.join(' و');
+}
+
+var FR_ONES = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+var FR_TEENS = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+var FR_TENS_NAMES = { 2: 'vingt', 3: 'trente', 4: 'quarante', 5: 'cinquante', 6: 'soixante', 8: 'quatre-vingt' };
+function frTwoDigits(r, final) {
+  if (r < 10) return FR_ONES[r];
+  if (r < 20) return FR_TEENS[r - 10];
+  var td = Math.floor(r / 10), od = r % 10;
+  if (td === 7 || td === 9) {
+    var base = td === 7 ? 'soixante' : 'quatre-vingt';
+    if (od === 0) return base + (td === 7 ? '-dix' : (final ? 's-dix' : '-dix'));
+    if (td === 7 && od === 1) return base + ' et ' + FR_TEENS[1];
+    return base + '-' + FR_TEENS[od];
+  }
+  var base = FR_TENS_NAMES[td];
+  if (od === 0) return base + (td === 8 && final ? 's' : '');
+  if (od === 1 && td !== 8) return base + ' et un';
+  return base + '-' + FR_ONES[od];
+}
+function frGroup(n, final) {
+  var h = Math.floor(n / 100), r = n % 100, parts = [];
+  if (h) parts.push(h === 1 ? 'cent' : FR_ONES[h] + ' cent' + (h > 1 && r === 0 && final ? 's' : ''));
+  if (r) parts.push(frTwoDigits(r, final));
+  return parts.join(' ');
+}
+function numberToWordsFr(n) {
+  if (n === 0) return 'zéro';
+  var billion = Math.floor(n / 1e9); n %= 1e9;
+  var million = Math.floor(n / 1e6); n %= 1e6;
+  var thousand = Math.floor(n / 1e3); n %= 1e3;
+  var parts = [];
+  if (billion) parts.push((billion === 1 ? 'un' : frGroup(billion, false)) + ' milliard' + (billion > 1 ? 's' : ''));
+  if (million) parts.push((million === 1 ? 'un' : frGroup(million, false)) + ' million' + (million > 1 ? 's' : ''));
+  if (thousand) parts.push(thousand === 1 ? 'mille' : frGroup(thousand, false) + ' mille');
+  if (n) parts.push(frGroup(n, true));
+  return parts.join(' ').trim();
+}
+
+var EN_ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+var EN_TEENS = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+var EN_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+function enGroup(n) {
+  var h = Math.floor(n / 100), r = n % 100, parts = [];
+  if (h) parts.push(EN_ONES[h] + ' hundred');
+  if (r) {
+    if (r < 10) parts.push(EN_ONES[r]);
+    else if (r < 20) parts.push(EN_TEENS[r - 10]);
+    else { var td = Math.floor(r / 10), od = r % 10; parts.push(EN_TENS[td] + (od ? '-' + EN_ONES[od] : '')); }
+  }
+  return parts.join(' ');
+}
+function numberToWordsEn(n) {
+  if (n === 0) return 'zero';
+  var billion = Math.floor(n / 1e9); n %= 1e9;
+  var million = Math.floor(n / 1e6); n %= 1e6;
+  var thousand = Math.floor(n / 1e3); n %= 1e3;
+  var parts = [];
+  if (billion) parts.push(enGroup(billion) + ' billion');
+  if (million) parts.push(enGroup(million) + ' million');
+  if (thousand) parts.push(enGroup(thousand) + ' thousand');
+  if (n) parts.push(enGroup(n));
+  return parts.join(' ');
+}
+function numberToWords(n) {
+  var l = lang();
+  if (l === 'fr') return numberToWordsFr(n);
+  if (l === 'en') return numberToWordsEn(n);
+  return numberToWordsAr(n);
+}
+/* builds the full "this invoice is settled at the amount of ..." sentence for a total in cents */
+function amountInWords(cents) {
+  var whole = Math.trunc(Math.abs(cents) / 100), cs = Math.abs(cents) % 100;
+  var curName = (CURRENCY_NAMES[(S.settings.currency || 'DZD')] || {})[lang()] || curSuffix();
+  var words = numberToWords(whole) + ' ' + curName;
+  if (cs) {
+    var csWord = lang() === 'fr' ? numberToWordsFr(cs) : lang() === 'en' ? numberToWordsEn(cs) : numberToWordsAr(cs);
+    words += ' ' + t('common.and') + ' ' + csWord + ' ' + t('receipt.centime');
+  }
+  return t('receipt.amountWordsPrefix') + (lang() === 'ar' ? ': ' : ' : ') + words + '.';
+}
+
 var COUNTRIES = [
   { code: 'DZ', ar: 'الجزائر', fr: 'Algérie', en: 'Algeria', currency: 'DZD' },
   { code: 'MA', ar: 'المغرب', fr: 'Maroc', en: 'Morocco', currency: 'MAD' },
@@ -520,7 +664,7 @@ function norm(s) {
 function seed() {
   var now = Date.now(), day = 86400000, da = function (n) { return n * 100; };
   var st = {
-    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', phone: '', address: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
+    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', phone: '', address: '', rc: '', nif: '', nis: '', art: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
     seq: { id: 100, inv: 0 },
     products: [
       { id: 1, name: 'حليب 1 لتر', price: da(70), taxBp: 0, cost: da(55), min: 10 },
@@ -558,6 +702,10 @@ function load() {
         if (!o.settings.currency) o.settings.currency = 'DZD';
         if (o.settings.phone == null) o.settings.phone = '';
         if (o.settings.address == null) o.settings.address = '';
+        if (o.settings.rc == null) o.settings.rc = '';
+        if (o.settings.nif == null) o.settings.nif = '';
+        if (o.settings.nis == null) o.settings.nis = '';
+        if (o.settings.art == null) o.settings.art = '';
         return o;
       }
     }
@@ -584,6 +732,13 @@ function startOfToday() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.g
 /* ---------- domain functions: each one is a single atomic update, like the data layer in architecture.md ---------- */
 var METHOD_KEYS = ['cash', 'credit', 'card', 'cheque', 'wallet'];
 function methodLabel(k) { return t('method.' + k); }
+var DOC_TYPE_KEYS = ['invoice', 'proforma', 'receipt'];
+function docTypeLabel(k) { return t('sale.doc' + k[0].toUpperCase() + k.slice(1)); }
+function docTitle(docType) { return docType === 'proforma' ? t('sale.docProformaTitle') : docTypeLabel(docType || 'receipt'); }
+function docHeading(docType, number) {
+  if (docType === 'proforma') return t('sale.docProformaTitle') + ' ' + t('receipt.numberOnly') + ' ' + number;
+  return t('receipt.invoiceNo') + ' ' + number;
+}
 function methodOptions(selected, excludeCredit) {
   return METHOD_KEYS.filter(function (k) { return !excludeCredit || k !== 'credit'; }).map(function (k) {
     return '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + methodLabel(k) + '</option>';
@@ -606,7 +761,7 @@ function createSale(o) {
     if (paid < 0 || paid > total) throw new Error(t('sale.paidAmountErr'));
   } else paid = total;
   var ts = Date.now(), id = nid(), number = ++S.seq.inv;
-  var inv = { id: id, number: number, customerId: o.customerId || null, ts: ts, method: o.method, subtotal: sub, tax: tax, total: total, paid: paid, lines: lines };
+  var inv = { id: id, number: number, customerId: o.customerId || null, ts: ts, method: o.method, docType: o.docType || 'receipt', subtotal: sub, tax: tax, total: total, paid: paid, lines: lines };
   S.invoices.push(inv);
   lines.forEach(function (l) { S.stock.push({ pid: l.pid, qty: -l.qty, kind: 'sale', doc: id, ts: ts }); });
   if (o.method === 'credit') {
@@ -761,7 +916,10 @@ function cartInto() {
       '<div class="stepper"><button type="button" data-act="dec" data-i="' + i + '" aria-label="' + t('sale.dec') + '">&minus;</button><span class="q num">' + q + '</span><button type="button" data-act="inc" data-i="' + i + '" aria-label="' + t('sale.inc') + '">+</button></div>' +
       '<div class="end" style="min-width:76px"><b>' + m(l.total) + '</b></div></div>';
   }).join('') + '</div>';
-  html += '<div class="card" style="margin-top:10px"><div style="padding:12px 14px"><div class="seg" role="group" aria-label="' + t('sale.payMethod') + '">' +
+  html += '<div class="card" style="margin-top:10px"><div style="padding:12px 14px">' +
+    '<label class="f" style="margin-top:0">' + t('sale.docType') + '</label><div class="seg" role="group" aria-label="' + t('sale.docType') + '">' +
+    DOC_TYPE_KEYS.map(function (k) { return '<button type="button" data-act="docType" data-dt="' + k + '" aria-pressed="' + (ui.docType === k) + '">' + docTypeLabel(k) + '</button>'; }).join('') + '</div>' +
+    '<label class="f">' + t('sale.payMethod') + '</label><div class="seg" role="group" aria-label="' + t('sale.payMethod') + '">' +
     METHOD_KEYS.map(function (k) { return '<button type="button" data-act="method" data-m="' + k + '" aria-pressed="' + (ui.method === k) + '">' + methodLabel(k) + '</button>'; }).join('') + '</div>';
   html += '<label class="f" for="custSel">' + (ui.method === 'credit' ? t('sale.customer') : t('sale.customerOptional')) + '</label><select id="custSel"><option value="">' + (ui.method === 'credit' ? t('sale.chooseCustomer') : t('sale.noCustomer')) + '</option>' +
     S.customers.map(function (c) { return '<option value="' + c.id + '"' + (String(c.id) === ui.cust ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') + '</select>';
@@ -774,6 +932,7 @@ function cartInto() {
   el.innerHTML = html;
 }
 function receiptText(inv) {
+  if (inv.docType === 'invoice' || inv.docType === 'proforma') return officialText(inv);
   var c = inv.customerId ? cust(inv.customerId) : null;
   var header = [S.settings.shop];
   if (S.settings.phone) header.push(iso(S.settings.phone));
@@ -784,7 +943,33 @@ function receiptText(inv) {
     '\n--------------------\n' + lines + '\n--------------------\n' + t('sale.total') + ': ' + iso(fmtNum(inv.total)) + ' ' + cur + '\n' + t('sale.payMethod') + ': ' + methodLabel(inv.method) +
     (inv.method === 'credit' ? '\n' + t('receipt.paidAmount') + ': ' + iso(fmtNum(inv.paid)) + ' ' + cur + '\n' + t('receipt.remaining') + ': ' + iso(fmtNum(inv.total - inv.paid)) + ' ' + cur : '') + '\n' + t('receipt.thanks');
 }
+function officialText(inv) {
+  var c = inv.customerId ? cust(inv.customerId) : null;
+  var cur = curSuffix();
+  var header = [S.settings.shop];
+  if (S.settings.phone) header.push(iso(S.settings.phone));
+  if (S.settings.address) header.push(S.settings.address);
+  if (S.settings.rc) header.push(t('settings.rc') + ': ' + S.settings.rc);
+  if (S.settings.nif) header.push(t('settings.nif') + ': ' + S.settings.nif);
+  if (S.settings.nis) header.push(t('settings.nis') + ': ' + S.settings.nis);
+  if (S.settings.art) header.push(t('settings.art') + ': ' + S.settings.art);
+  var lines = inv.lines.map(function (l) {
+    var unitHt = l.qty ? divRound(l.net * 1000, l.qty) : l.net;
+    var tvaTxt = l.taxBp ? ((l.taxBp / 100) + '%') : (t('receipt.exempt') + ' 0%');
+    return l.name + '  ' + iso(qtyTxt(l.qty)) + ' × ' + iso(fmtNum(unitHt)) + ' ' + cur + ' (' + tvaTxt + ') = ' + iso(fmtNum(l.total)) + ' ' + cur;
+  }).join('\n');
+  return header.join('\n') + '\n\n' + docHeading(inv.docType, iso(String(inv.number))) + '\n' + iso(dt(inv.ts)) +
+    '\n' + t('receipt.client') + ': ' + (c ? c.name : t('receipt.walkIn')) +
+    '\n--------------------\n' + lines + '\n--------------------\n' +
+    t('receipt.totalHT') + ': ' + iso(fmtNum(inv.subtotal)) + ' ' + cur + '\n' +
+    t('receipt.totalTVA') + ': ' + iso(fmtNum(inv.tax)) + ' ' + cur + '\n' +
+    t('receipt.totalTTC') + ': ' + iso(fmtNum(inv.total)) + ' ' + cur + '\n' +
+    t('sale.payMethod') + ': ' + methodLabel(inv.method) +
+    (inv.method === 'credit' ? '\n' + t('receipt.paidAmount') + ': ' + iso(fmtNum(inv.paid)) + ' ' + cur + '\n' + t('receipt.remaining') + ': ' + iso(fmtNum(inv.total - inv.paid)) + ' ' + cur : '') +
+    '\n\n' + amountInWords(inv.total) + '\n\n' + t('receipt.signatureBox') + ': ____________________\n\n' + t('receipt.thanks');
+}
 function receiptPrintHtml(inv) {
+  if (inv.docType === 'invoice' || inv.docType === 'proforma') return officialPrintHtml(inv);
   var c = inv.customerId ? cust(inv.customerId) : null;
   var row = function (a, b2) { return '<div style="display:flex;justify-content:space-between;gap:8px"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
   var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
@@ -805,6 +990,45 @@ function receiptPrintHtml(inv) {
     (inv.tax ? row(t('sale.beforeTax'), '<bdi dir="ltr">' + fmtNum(inv.subtotal) + '</bdi> ' + curSuffix()) + row(t('sale.tax'), '<bdi dir="ltr">' + fmtNum(inv.tax) + '</bdi> ' + curSuffix()) : '') +
     '<b>' + row(t('sale.total'), '<bdi dir="ltr">' + fmtNum(inv.total) + '</bdi> ' + curSuffix()) + '</b>' + row(t('sale.payMethod'), methodLabel(inv.method)) +
     (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi dir="ltr">' + fmtNum(inv.paid) + '</bdi> ' + curSuffix()) + row(t('receipt.remaining'), '<bdi dir="ltr">' + fmtNum(inv.total - inv.paid) + '</bdi> ' + curSuffix()) : '') +
+    '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
+}
+/* the formal tax-invoice / proforma layout: bilingual-ready header, RC/NIF/NIS/AI block, a 5-column
+   HT/TVA/TTC breakdown table, HT/TVA/TTC totals, the amount spelled out in words, and a signature box */
+function officialPrintHtml(inv) {
+  var c = inv.customerId ? cust(inv.customerId) : null;
+  var ar = lang() === 'ar';
+  var row = function (a, b2, bold) { return '<div style="display:flex;justify-content:space-between;gap:8px' + (bold ? ';font-weight:700' : '') + '"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
+  var legal = [];
+  if (S.settings.rc) legal.push(t('settings.rc') + ': ' + esc(S.settings.rc));
+  if (S.settings.nif) legal.push(t('settings.nif') + ': ' + esc(S.settings.nif));
+  if (S.settings.nis) legal.push(t('settings.nis') + ': ' + esc(S.settings.nis));
+  if (S.settings.art) legal.push(t('settings.art') + ': ' + esc(S.settings.art));
+  var th = 'border:1px solid #999;padding:4px 6px;background:#f2f2f2;font-size:11px';
+  var td = 'border:1px solid #999;padding:4px 6px;font-size:12px';
+  var rows = inv.lines.map(function (l) {
+    var unitHt = l.qty ? divRound(l.net * 1000, l.qty) : l.net;
+    var tvaTxt = l.taxBp ? ((l.taxBp / 100) + '%') : (t('receipt.exempt') + ' 0%');
+    return '<tr><td style="' + td + '">' + esc(l.name) + '</td>' +
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + qtyTxt(l.qty) + '</bdi></td>' +
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(unitHt) + '</bdi> ' + curSuffix() + '</td>' +
+      '<td style="' + td + ';text-align:center">' + tvaTxt + '</td>' +
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(l.total) + '</bdi> ' + curSuffix() + '</td></tr>';
+  }).join('');
+  return '<div dir="' + (ar ? 'rtl' : 'ltr') + '" style="font-family:Arial,sans-serif;width:100%;max-width:480px;margin:0 auto;font-size:13px">' +
+    '<div style="text-align:center"><b style="font-size:16px">' + esc(S.settings.shop) + '</b></div>' +
+    (legal.length ? '<div style="font-size:11px;line-height:1.6;margin-top:6px">' + legal.map(function (x) { return '<div>' + x + '</div>'; }).join('') + '</div>' : '') +
+    '<hr><div style="text-align:center"><b>' + docHeading(inv.docType, '<bdi dir="ltr">' + inv.number + '</bdi>') + '</b><br><bdi dir="ltr">' + dt(inv.ts) + '</bdi></div>' +
+    '<div style="margin-top:6px">' + t('receipt.client') + ': ' + (c ? esc(c.name) : t('receipt.walkIn')) + '</div><hr>' +
+    '<table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>' +
+    '<th style="' + th + '">' + t('receipt.colItem') + '</th><th style="' + th + '">' + t('receipt.colQty') + '</th><th style="' + th + '">' + t('receipt.colUnitHT') + '</th><th style="' + th + '">' + t('receipt.colTva') + '</th><th style="' + th + '">' + t('receipt.colTotalTTC') + '</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table><hr>' +
+    row(t('receipt.totalHT'), '<bdi dir="ltr">' + fmtNum(inv.subtotal) + '</bdi> ' + curSuffix()) +
+    row(t('receipt.totalTVA'), '<bdi dir="ltr">' + fmtNum(inv.tax) + '</bdi> ' + curSuffix()) +
+    row(t('receipt.totalTTC'), '<bdi dir="ltr">' + fmtNum(inv.total) + '</bdi> ' + curSuffix(), true) +
+    row(t('sale.payMethod'), methodLabel(inv.method)) +
+    (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi dir="ltr">' + fmtNum(inv.paid) + '</bdi> ' + curSuffix()) + row(t('receipt.remaining'), '<bdi dir="ltr">' + fmtNum(inv.total - inv.paid) + '</bdi> ' + curSuffix()) : '') +
+    '<hr><div style="margin-top:4px;font-size:12px">' + esc(amountInWords(inv.total)) + '</div>' +
+    '<div style="margin-top:18px;border:1px dashed #999;border-radius:6px;min-height:70px;padding:8px;text-align:center;font-size:11px;color:#555">' + t('receipt.signatureBox') + '</div>' +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
 var _loadedScripts = {};
@@ -866,27 +1090,33 @@ function formShareChooser(inv) {
   openSheet(t('receipt.chooseFormatTitle'), opt('text', t('receipt.asText')) + opt('jpg', t('receipt.asImage')) + opt('pdf', t('receipt.asPdf')));
 }
 function showReceipt(inv) {
-  var c = inv.customerId ? cust(inv.customerId) : null;
-  var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
-  var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '">' +
-    (contact ? '<div style="text-align:left;font-size:11px;line-height:1.5;margin-bottom:4px">' + contact + '</div>' : '') +
-    '<div class="c"><b>' + esc(S.settings.shop) + '</b><br><bdi dir="ltr" class="num">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
-    '<th style="text-align:start;border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colItem') + '</th>' +
-    '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colQty') + '</th>' +
-    '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colUnit') + '</th>' +
-    '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colTotal') + '</th>' +
-    '</tr></thead><tbody>' +
-    inv.lines.map(function (l) {
-      return '<tr><td style="padding:3px 4px;overflow-wrap:anywhere">' + esc(l.name) + '</td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + qtyTxt(l.qty) + '</bdi></td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmtNum(l.price) + '</bdi> ' + curSuffix() + '</td>' +
-        '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmtNum(l.total) + '</bdi> ' + curSuffix() + '</td></tr>';
-    }).join('') + '</tbody></table><hr>' +
-    (inv.tax ? '<div class="l"><span>' + t('sale.beforeTax') + '</span><span>' + m(inv.subtotal) + '</span></div><div class="l"><span>' + t('sale.tax') + '</span><span>' + m(inv.tax) + '</span></div>' : '') +
-    '<div class="l"><b>' + t('sale.total') + '</b><b>' + m(inv.total) + '</b></div><div class="l"><span>' + t('sale.payMethod') + '</span><span>' + methodLabel(inv.method) + '</span></div>' +
-    (inv.method === 'credit' ? '<div class="l"><span>' + t('receipt.paidAmount') + '</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>' + t('receipt.remainingOnCustomer') + '</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
-    '<hr><div class="c">' + t('receipt.thanks') + '</div></div>' +
+  var isOfficial = inv.docType === 'invoice' || inv.docType === 'proforma';
+  var paperBody;
+  if (isOfficial) {
+    paperBody = officialPrintHtml(inv);
+  } else {
+    var c = inv.customerId ? cust(inv.customerId) : null;
+    var contact = (S.settings.phone ? '<div><bdi dir="ltr">' + esc(S.settings.phone) + '</bdi></div>' : '') + (S.settings.address ? '<div>' + esc(S.settings.address) + '</div>' : '');
+    paperBody = (contact ? '<div style="text-align:left;font-size:11px;line-height:1.5;margin-bottom:4px">' + contact + '</div>' : '') +
+      '<div class="c"><b>' + esc(S.settings.shop) + '</b><br><bdi dir="ltr" class="num">' + dt(inv.ts) + '</bdi><br>' + t('receipt.invoiceNo') + ' <span class="num">' + inv.number + '</span>' + (c ? '<br>' + t('receipt.customer') + ': ' + esc(c.name) : '') + '</div><hr>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
+      '<th style="text-align:start;border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colItem') + '</th>' +
+      '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colQty') + '</th>' +
+      '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colUnit') + '</th>' +
+      '<th style="border-bottom:1px solid #ccc;padding:3px 4px">' + t('receipt.colTotal') + '</th>' +
+      '</tr></thead><tbody>' +
+      inv.lines.map(function (l) {
+        return '<tr><td style="padding:3px 4px;overflow-wrap:anywhere">' + esc(l.name) + '</td>' +
+          '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + qtyTxt(l.qty) + '</bdi></td>' +
+          '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmtNum(l.price) + '</bdi> ' + curSuffix() + '</td>' +
+          '<td style="padding:3px 4px;text-align:center"><bdi dir="ltr" class="num">' + fmtNum(l.total) + '</bdi> ' + curSuffix() + '</td></tr>';
+      }).join('') + '</tbody></table><hr>' +
+      (inv.tax ? '<div class="l"><span>' + t('sale.beforeTax') + '</span><span>' + m(inv.subtotal) + '</span></div><div class="l"><span>' + t('sale.tax') + '</span><span>' + m(inv.tax) + '</span></div>' : '') +
+      '<div class="l"><b>' + t('sale.total') + '</b><b>' + m(inv.total) + '</b></div><div class="l"><span>' + t('sale.payMethod') + '</span><span>' + methodLabel(inv.method) + '</span></div>' +
+      (inv.method === 'credit' ? '<div class="l"><span>' + t('receipt.paidAmount') + '</span><span>' + m(inv.paid) + '</span></div><div class="l"><span>' + t('receipt.remainingOnCustomer') + '</span><span>' + m(inv.total - inv.paid) + '</span></div>' : '') +
+      '<hr><div class="c">' + t('receipt.thanks') + '</div>';
+  }
+  var h = '<div class="paper" dir="' + (lang() === 'ar' ? 'rtl' : 'ltr') + '">' + paperBody + '</div>' +
     '<div class="note">' + t('receipt.printNote') + '</div>' +
     '<div class="actions" style="margin-top:12px"><button type="button" class="btn" data-act="shareChooser" data-id="' + inv.id + '">↗ ' + t('receipt.share') + '</button><button type="button" class="btn" data-act="printReceipt" data-id="' + inv.id + '">🖶 ' + t('receipt.print') + '</button></div>' +
     '<div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-act="closeSheet">' + t('receipt.newSale') + '</button></div>';
@@ -1047,6 +1277,11 @@ function formSettings() {
     '<label class="f" for="country">' + t('settings.country') + '</label><select id="country" name="country">' + COUNTRIES.map(countryOpt).join('') + '</select>' +
     '<label class="f" for="currency">' + t('settings.currency') + '</label><select id="currency" name="currency">' + Object.keys(CURRENCIES).map(curOpt).join('') + '</select>' +
     '<div class="note">' + t('settings.currencyNote') + '</div>' +
+    '<h2 class="sec" style="margin-top:14px">' + t('settings.officialTitle') + '</h2>' +
+    field('rc', t('settings.rc'), 'type="text" autocomplete="off" value="' + esc(S.settings.rc || '') + '"') +
+    field('nif', t('settings.nif'), 'type="text" autocomplete="off" value="' + esc(S.settings.nif || '') + '"') +
+    field('nis', t('settings.nis'), 'type="text" autocomplete="off" value="' + esc(S.settings.nis || '') + '"') +
+    field('art', t('settings.art'), 'type="text" autocomplete="off" value="' + esc(S.settings.art || '') + '"') +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
     '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
 }
@@ -1108,6 +1343,10 @@ var HANDLERS = {
     S.settings.shop = (fd.get('shop') || '').trim();
     S.settings.phone = (fd.get('phone') || '').trim();
     S.settings.address = (fd.get('address') || '').trim();
+    S.settings.rc = (fd.get('rc') || '').trim();
+    S.settings.nif = (fd.get('nif') || '').trim();
+    S.settings.nis = (fd.get('nis') || '').trim();
+    S.settings.art = (fd.get('art') || '').trim();
     var newLang = fd.get('lang'); if (newLang !== 'ar' && newLang !== 'fr' && newLang !== 'en') newLang = 'ar';
     S.settings.lang = newLang;
     var newCountry = fd.get('country'); if (!countryOf(newCountry)) newCountry = 'DZ';
@@ -1136,10 +1375,11 @@ var ACTS = {
   dec: function (b) { var l = ui.cart[+b.dataset.i]; l.qty--; if (l.qty <= 0) ui.cart.splice(+b.dataset.i, 1); cartInto(); },
   clear: function () { ui.cart = []; ui.paid = ''; cartInto(); },
   method: function (b) { ui.method = b.dataset.m; cartInto(); },
+  docType: function (b) { ui.docType = b.dataset.dt; cartInto(); },
   save: function () {
     var paidEl = document.getElementById('paid'); if (paidEl) ui.paid = paidEl.value;
     try {
-      var inv = createSale({ cart: ui.cart, method: ui.method, customerId: ui.cust ? +ui.cust : null, paid: ui.method === 'credit' ? toCents(ui.paid) : 0 });
+      var inv = createSale({ cart: ui.cart, method: ui.method, docType: ui.docType, customerId: ui.cust ? +ui.cust : null, paid: ui.method === 'credit' ? toCents(ui.paid) : 0 });
       ui.cart = []; ui.paid = ''; ui.cust = ''; ui.method = 'cash';
       cartInto(); gridInto(); showReceipt(inv);
     } catch (e) { toast(e.message); }

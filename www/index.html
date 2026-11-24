@@ -163,7 +163,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.6';
+var APP_VERSION = '1.2.7';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -994,7 +994,7 @@ function receiptPrintHtml(inv) {
 }
 /* the formal tax-invoice / proforma layout: bilingual-ready header, RC/NIF/NIS/AI block, a 5-column
    HT/TVA/TTC breakdown table, HT/TVA/TTC totals, the amount spelled out in words, and a signature box */
-function officialPrintHtml(inv) {
+function officialPrintHtml(inv, maxWidth) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var ar = lang() === 'ar';
   var row = function (a, b2, bold) { return '<div style="display:flex;justify-content:space-between;gap:8px' + (bold ? ';font-weight:700' : '') + '"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
@@ -1014,7 +1014,7 @@ function officialPrintHtml(inv) {
       '<td style="' + td + ';text-align:center">' + tvaTxt + '</td>' +
       '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(l.total) + '</bdi> ' + curSuffix() + '</td></tr>';
   }).join('');
-  return '<div dir="' + (ar ? 'rtl' : 'ltr') + '" style="font-family:Arial,sans-serif;width:100%;max-width:480px;margin:0 auto;font-size:13px">' +
+  return '<div dir="' + (ar ? 'rtl' : 'ltr') + '" style="font-family:Arial,sans-serif;width:100%;max-width:' + (maxWidth || '480px') + ';margin:0 auto;font-size:13px">' +
     '<div style="text-align:center"><b style="font-size:16px">' + esc(S.settings.shop) + '</b></div>' +
     (legal.length ? '<div style="font-size:11px;line-height:1.6;margin-top:6px">' + legal.map(function (x) { return '<div>' + x + '</div>'; }).join('') + '</div>' : '') +
     '<hr><div style="text-align:center"><b>' + docHeading(inv.docType, '<bdi dir="ltr">' + inv.number + '</bdi>') + '</b><br><bdi dir="ltr">' + dt(inv.ts) + '</bdi></div>' +
@@ -1030,6 +1030,17 @@ function officialPrintHtml(inv) {
     '<hr><div style="margin-top:4px;font-size:12px">' + esc(amountInWords(inv.total)) + '</div>' +
     '<div style="margin-top:18px;border:1px dashed #999;border-radius:6px;min-height:70px;padding:8px;text-align:center;font-size:11px;color:#555">' + t('receipt.signatureBox') + '</div>' +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
+}
+/* official invoices/proformas go to a real printer on A4 paper, not an 80mm thermal roll:
+   build a full standalone page with @page sizing so it fills the sheet instead of printing
+   as a narrow column in the middle of an A4 page */
+function receiptPrintHtmlForPrinter(inv) {
+  if (inv.docType === 'invoice' || inv.docType === 'proforma') {
+    return '<!doctype html><html><head><meta charset="utf-8">' +
+      '<style>@page{size:A4;margin:15mm}html,body{margin:0;padding:0;background:#fff}</style></head><body>' +
+      officialPrintHtml(inv, '100%') + '</body></html>';
+  }
+  return receiptPrintHtml(inv);
 }
 var _loadedScripts = {};
 function loadScript(src) {
@@ -1412,7 +1423,7 @@ var ACTS = {
     var inv = invById(+b.dataset.id); if (!inv) return;
     var P = window.Capacitor && Capacitor.Plugins && (Capacitor.Plugins.Printer || Capacitor.Plugins.CapacitorPrinter);
     if (P && P.printHtml) {
-      P.printHtml({ html: receiptPrintHtml(inv), name: t('receipt.invoiceNo') + '-' + inv.number }).catch(function () { toast(t('receipt.printFailed')); });
+      P.printHtml({ html: receiptPrintHtmlForPrinter(inv), name: t('receipt.invoiceNo') + '-' + inv.number }).catch(function () { toast(t('receipt.printFailed')); });
       return;
     }
     toast(t('receipt.noPrinter'));

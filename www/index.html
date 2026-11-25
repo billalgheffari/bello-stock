@@ -163,7 +163,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.9';
+var APP_VERSION = '1.2.10';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -1079,9 +1079,19 @@ function officialPrintHtml(inv, maxWidth) {
    as a narrow column in the middle of an A4 page */
 function receiptPrintHtmlForPrinter(inv) {
   if (inv.docType === 'invoice' || inv.docType === 'proforma') {
+    // Android's print-to-PDF pipeline lays this HTML out at whatever viewport width the phone's
+    // WebView defaults to (often a narrow mobile width), then either shrinks the result to fit
+    // one page (leaving blank space below, "Auto") or stretches/crops it to fill the page ("Full
+    // page") — it mostly ignores @page{size:A4} as a real pagination hint. Two fixes together:
+    // (1) a fixed-width viewport meta so it always lays the page out at a consistent, print-sized
+    // width instead of a narrow phone width (which is what made the content come out short/wide
+    // relative to A4 in the first place), and (2) a page box sized to A4's own pixel dimensions
+    // at that width, so there's nothing left for "fit" or "stretch" to get wrong.
     return '<!doctype html><html><head><meta charset="utf-8">' +
-      '<style>@page{size:A4;margin:15mm}html,body{margin:0;padding:0;background:#fff}</style></head><body>' +
-      officialPrintHtml(inv, '100%') + '</body></html>';
+      '<meta name="viewport" content="width=794">' +
+      '<style>@page{size:A4;margin:0}html,body{margin:0;padding:0;background:#fff}' +
+      '.a4{width:794px;min-height:1123px;box-sizing:border-box;padding:28px}</style></head>' +
+      '<body><div class="a4">' + officialPrintHtml(inv, '100%') + '</div></body></html>';
   }
   return receiptPrintHtml(inv);
 }

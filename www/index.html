@@ -163,7 +163,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.8';
+var APP_VERSION = '1.2.9';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -273,6 +273,7 @@ var STR = {
   'receipt.colUnit': { ar: 'سعر الوحدة', fr: 'Prix unitaire', en: 'Unit price' },
   'receipt.colTotal': { ar: 'المجموع', fr: 'Total', en: 'Total' },
   'receipt.colTotalTTC': { ar: 'المجموع (شامل الضريبة)', fr: 'Total TTC', en: 'Total (incl. tax)' },
+  'receipt.colTotalHT': { ar: 'المجموع (قبل الضريبة)', fr: 'Total HT', en: 'Total (excl. tax)' },
   'receipt.colUnitHT': { ar: 'سعر الوحدة (قبل الضريبة)', fr: 'P.U HT', en: 'Unit price (excl. tax)' },
   'receipt.colTva': { ar: 'الضريبة %', fr: 'TVA %', en: 'VAT %' },
   'receipt.exempt': { ar: 'معفى', fr: 'Exonéré', en: 'Exempt' },
@@ -1023,17 +1024,27 @@ function officialPrintHtml(inv, maxWidth) {
   if (S.settings.art) legal.push(t('settings.art') + ': ' + esc(S.settings.art));
   if (S.settings.phone) legal.push('<bdi dir="ltr">' + esc(S.settings.phone) + '</bdi>');
   if (S.settings.address) legal.push(esc(S.settings.address));
-  var th = 'border:1px solid #999;padding:4px 6px;background:#f2f2f2;font-size:11px';
-  var td = 'border:1px solid #999;padding:4px 6px;font-size:12px';
-  var rows = inv.lines.map(function (l) {
+  var th = 'border:1px solid #999;padding:5px 6px;background:#f2f2f2;font-size:11px';
+  var td = 'border:1px solid #999;padding:6px 6px;font-size:12px;height:22px';
+  var dataRows = inv.lines.map(function (l, idx) {
     var unitHt = l.qty ? divRound(l.net * 1000, l.qty) : l.net;
     var tvaTxt = l.taxBp ? ((l.taxBp / 100) + '%') : (t('receipt.exempt') + ' 0%');
-    return '<tr><td style="' + td + '">' + esc(l.name) + '</td>' +
-      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + qtyTxt(l.qty) + '</bdi></td>' +
+    return '<tr>' +
+      '<td style="' + td + ';text-align:center">' + (idx + 1) + '</td>' +
+      '<td style="' + td + '">' + esc(l.name) + '</td>' +
       '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(unitHt) + '</bdi> ' + curSuffix() + '</td>' +
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + qtyTxt(l.qty) + '</bdi></td>' +
       '<td style="' + td + ';text-align:center">' + tvaTxt + '</td>' +
-      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(l.total) + '</bdi> ' + curSuffix() + '</td></tr>';
-  }).join('');
+      '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(l.net) + '</bdi> ' + curSuffix() + '</td></tr>';
+  });
+  // pad the table out with blank rows so it reaches down the page like a real pre-printed invoice form,
+  // instead of stopping short and leaving an obviously-short table
+  var minRows = 14;
+  var blankCells = ['', '', '', '', '', ''].map(function () { return '<td style="' + td + '">&nbsp;</td>'; }).join('');
+  var fillerCount = Math.max(0, minRows - dataRows.length);
+  var fillerRows = [];
+  for (var fi = 0; fi < fillerCount; fi++) fillerRows.push('<tr>' + blankCells + '</tr>');
+  var rows = dataRows.join('') + fillerRows.join('');
   var stamp = stampDuty(inv);
   var netToPay = inv.total + stamp;
   var totalsRow = function (a, b2, bold) { return '<tr' + (bold ? ' style="font-weight:700"' : '') + '><td style="padding:4px 10px;border-bottom:1px solid #ddd">' + a + '</td><td style="padding:4px 10px;border-bottom:1px solid #ddd;text-align:end">' + b2 + '</td></tr>'; };
@@ -1049,10 +1060,10 @@ function officialPrintHtml(inv, maxWidth) {
     '<div style="text-align:end">' + t('sale.payMethod') + ': ' + methodLabel(inv.method) + '<br><bdi dir="ltr">' + dt(inv.ts) + '</bdi></div>' +
     '</div><hr>' +
     '<table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>' +
-    '<th style="' + th + '">' + t('receipt.colItem') + '</th><th style="' + th + '">' + t('receipt.colQty') + '</th><th style="' + th + '">' + t('receipt.colUnitHT') + '</th><th style="' + th + '">' + t('receipt.colTva') + '</th><th style="' + th + '">' + t('receipt.colTotalTTC') + '</th>' +
+    '<th style="' + th + ';width:28px">' + t('receipt.numberOnly') + '</th><th style="' + th + '">' + t('receipt.colItem') + '</th><th style="' + th + '">' + t('receipt.colUnitHT') + '</th><th style="' + th + '">' + t('receipt.colQty') + '</th><th style="' + th + '">' + t('receipt.colTva') + '</th><th style="' + th + '">' + t('receipt.colTotalHT') + '</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table>' +
     '<div style="display:flex;justify-content:space-between;gap:14px;margin-top:14px;align-items:flex-start">' +
-    '<div style="flex:1;font-size:12px">' + esc(amountInWords(inv.total, inv.docType)) + '</div>' +
+    '<div style="flex:1;font-size:12px;border-bottom:1px solid #000;padding-bottom:10px">' + esc(amountInWords(inv.total, inv.docType)) + '</div>' +
     '<table style="border:1px solid #999;border-collapse:collapse;font-size:12px;min-width:170px">' +
     totalsRow(t('receipt.totalHT'), '<bdi dir="ltr">' + fmtNum(inv.subtotal) + '</bdi> ' + curSuffix()) +
     totalsRow(t('receipt.totalTVA'), '<bdi dir="ltr">' + fmtNum(inv.tax) + '</bdi> ' + curSuffix()) +
@@ -1085,10 +1096,13 @@ function loadScript(src) {
   return _loadedScripts[src];
 }
 function renderReceiptCanvas(inv) {
+  var isOfficial = inv.docType === 'invoice' || inv.docType === 'proforma';
   return loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js').then(function () {
     var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111;padding:16px';
-    box.innerHTML = receiptPrintHtml(inv);
+    // official invoices/proformas are rendered at an A4-proportioned pixel width (794px ≈ 210mm
+    // at 96dpi) so the shared JPG/PDF looks like a full page, not a narrow receipt strip
+    box.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111;padding:16px;box-sizing:border-box;' + (isOfficial ? 'width:794px' : 'width:420px');
+    box.innerHTML = isOfficial ? officialPrintHtml(inv, '100%') : receiptPrintHtml(inv);
     document.body.appendChild(box);
     return window.html2canvas(box, { scale: 2, backgroundColor: '#ffffff' }).then(function (canvas) {
       document.body.removeChild(box);
@@ -1110,10 +1124,22 @@ function shareReceiptAs(inv, kind) {
     }
     return loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js').then(function () {
       var jsPDF = window.jspdf.jsPDF;
-      var doc = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
-      doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, canvas.width, canvas.height);
+      var isOfficial = inv.docType === 'invoice' || inv.docType === 'proforma';
+      var doc, imgData = canvas.toDataURL('image/jpeg', 0.92);
+      if (isOfficial) {
+        // a real A4 page, with the rendered invoice scaled to fit it — not a page sized to
+        // whatever pixel dimensions the narrow on-screen canvas happened to come out at
+        doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        var pageW = doc.internal.pageSize.getWidth(), pageHMax = doc.internal.pageSize.getHeight();
+        var w = pageW, h = w * canvas.height / canvas.width;
+        if (h > pageHMax) { h = pageHMax; w = h * canvas.width / canvas.height; }
+        doc.addImage(imgData, 'JPEG', (pageW - w) / 2, 0, w, h);
+      } else {
+        doc = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+        doc.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+      }
       var pdfUri = doc.output('datauristring');
-      return shareDataFile(pdfUri, 'application/pdf', 'receipt-' + inv.number + '.pdf', canvas.toDataURL('image/jpeg', 0.92));
+      return shareDataFile(pdfUri, 'application/pdf', 'receipt-' + inv.number + '.pdf', imgData);
     });
   }).catch(function () { toast(t('receipt.shareFailed')); });
 }

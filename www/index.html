@@ -163,7 +163,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.2.7';
+var APP_VERSION = '1.2.8';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -202,6 +202,7 @@ var STR = {
   'settings.nif': { ar: 'رقم التعريف الجبائي (NIF)', fr: 'Identifiant fiscal (NIF)', en: 'Tax ID (NIF)' },
   'settings.nis': { ar: 'رقم التعريف الإحصائي (NIS)', fr: 'Identifiant statistique (NIS)', en: 'Statistical ID (NIS)' },
   'settings.art': { ar: 'رقم المادة الضريبية (AI)', fr: "Article d'imposition (AI)", en: 'Tax article (AI)' },
+  'settings.stampDutyRate': { ar: 'نسبة رسم الطابع (اختياري، يحسب فقط عند الدفع نقدًا)', fr: 'Taux du droit de timbre (optionnel, calculé seulement si le paiement est en espèces)', en: 'Stamp duty rate (optional, applied only on cash payments)' },
   'settings.version': { ar: 'الإصدار', fr: 'Version', en: 'Version' },
   'titles.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
   'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits', en: 'Stock and products' },
@@ -280,7 +281,11 @@ var STR = {
   'receipt.totalHT': { ar: 'المجموع خارج الرسم (Total HT)', fr: 'Total HT', en: 'Total excl. tax (HT)' },
   'receipt.totalTVA': { ar: 'الرسم على القيمة المضافة (Total TVA)', fr: 'Total TVA', en: 'Total VAT' },
   'receipt.totalTTC': { ar: 'المجموع الكلي شامل الرسوم (TTC)', fr: 'Total TTC', en: 'Total incl. tax (TTC)' },
-  'receipt.amountWordsPrefix': { ar: 'أوقفت هذه الفاتورة عند مبلغ', fr: 'Arrêtée la présente facture à la somme de', en: 'This invoice is settled at the amount of' },
+  'receipt.amountWordsPrefix': { ar: 'أوقفت هذه الفاتورة عند مبلغ', fr: 'La présente facture est arrêtée à la somme de', en: 'This invoice is settled at the amount of' },
+  'receipt.amountWordsPrefixProforma': { ar: 'أوقفت هذه الفاتورة البروفورما عند مبلغ', fr: 'La présente proforma est arrêtée à la somme de', en: 'This proforma invoice is settled at the amount of' },
+  'receipt.colNo': { ar: 'رقم', fr: 'N°', en: 'No.' },
+  'receipt.netToPay': { ar: 'الصافي للدفع', fr: 'Net à payer', en: 'Net to pay' },
+  'receipt.stampDuty': { ar: 'رسم الطابع', fr: 'Timbre', en: 'Stamp duty' },
   'receipt.centime': { ar: 'سنتيم', fr: 'centimes', en: 'cents' },
   'receipt.signatureBox': { ar: 'ختم وتوقيع البائع', fr: 'Cachet et signature du vendeur', en: 'Seller stamp and signature' },
   'products.searchPh': { ar: 'ابحث في المنتجات', fr: 'Rechercher un produit', en: 'Search products' },
@@ -559,7 +564,7 @@ function numberToWords(n) {
   return numberToWordsAr(n);
 }
 /* builds the full "this invoice is settled at the amount of ..." sentence for a total in cents */
-function amountInWords(cents) {
+function amountInWords(cents, docType) {
   var whole = Math.trunc(Math.abs(cents) / 100), cs = Math.abs(cents) % 100;
   var curName = (CURRENCY_NAMES[(S.settings.currency || 'DZD')] || {})[lang()] || curSuffix();
   var words = numberToWords(whole) + ' ' + curName;
@@ -567,7 +572,16 @@ function amountInWords(cents) {
     var csWord = lang() === 'fr' ? numberToWordsFr(cs) : lang() === 'en' ? numberToWordsEn(cs) : numberToWordsAr(cs);
     words += ' ' + t('common.and') + ' ' + csWord + ' ' + t('receipt.centime');
   }
-  return t('receipt.amountWordsPrefix') + (lang() === 'ar' ? ': ' : ' : ') + words + '.';
+  var prefix = docType === 'proforma' ? t('receipt.amountWordsPrefixProforma') : t('receipt.amountWordsPrefix');
+  return prefix + (lang() === 'ar' ? ': ' : ' : ') + words + '.';
+}
+/* the Algerian "droit de timbre" (fiscal stamp duty) applies only to invoices settled in cash;
+   the rate is a legal rate that changes by finance law, so it's left to the shop owner to set it
+   in Settings (0/empty by default = not charged) rather than hard-coding a rate here */
+function stampDuty(inv) {
+  var rate = parseFloat(S.settings.stampDutyRate);
+  if (!rate || inv.method !== 'cash') return 0;
+  return Math.round(inv.total * rate / 100);
 }
 
 var COUNTRIES = [
@@ -664,7 +678,7 @@ function norm(s) {
 function seed() {
   var now = Date.now(), day = 86400000, da = function (n) { return n * 100; };
   var st = {
-    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', phone: '', address: '', rc: '', nif: '', nis: '', art: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
+    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', phone: '', address: '', rc: '', nif: '', nis: '', art: '', stampDutyRate: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
     seq: { id: 100, inv: 0 },
     products: [
       { id: 1, name: 'حليب 1 لتر', price: da(70), taxBp: 0, cost: da(55), min: 10 },
@@ -706,6 +720,7 @@ function load() {
         if (o.settings.nif == null) o.settings.nif = '';
         if (o.settings.nis == null) o.settings.nis = '';
         if (o.settings.art == null) o.settings.art = '';
+        if (o.settings.stampDutyRate == null) o.settings.stampDutyRate = '';
         return o;
       }
     }
@@ -964,9 +979,11 @@ function officialText(inv) {
     t('receipt.totalHT') + ': ' + iso(fmtNum(inv.subtotal)) + ' ' + cur + '\n' +
     t('receipt.totalTVA') + ': ' + iso(fmtNum(inv.tax)) + ' ' + cur + '\n' +
     t('receipt.totalTTC') + ': ' + iso(fmtNum(inv.total)) + ' ' + cur + '\n' +
+    t('receipt.stampDuty') + ': ' + iso(fmtNum(stampDuty(inv))) + ' ' + cur + '\n' +
+    t('receipt.netToPay') + ': ' + iso(fmtNum(inv.total + stampDuty(inv))) + ' ' + cur + '\n' +
     t('sale.payMethod') + ': ' + methodLabel(inv.method) +
     (inv.method === 'credit' ? '\n' + t('receipt.paidAmount') + ': ' + iso(fmtNum(inv.paid)) + ' ' + cur + '\n' + t('receipt.remaining') + ': ' + iso(fmtNum(inv.total - inv.paid)) + ' ' + cur : '') +
-    '\n\n' + amountInWords(inv.total) + '\n\n' + t('receipt.signatureBox') + ': ____________________\n\n' + t('receipt.thanks');
+    '\n\n' + amountInWords(inv.total, inv.docType) + '\n\n' + t('receipt.signatureBox') + ': ____________________\n\n' + t('receipt.thanks');
 }
 function receiptPrintHtml(inv) {
   if (inv.docType === 'invoice' || inv.docType === 'proforma') return officialPrintHtml(inv);
@@ -992,17 +1009,20 @@ function receiptPrintHtml(inv) {
     (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi dir="ltr">' + fmtNum(inv.paid) + '</bdi> ' + curSuffix()) + row(t('receipt.remaining'), '<bdi dir="ltr">' + fmtNum(inv.total - inv.paid) + '</bdi> ' + curSuffix()) : '') +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
-/* the formal tax-invoice / proforma layout: bilingual-ready header, RC/NIF/NIS/AI block, a 5-column
-   HT/TVA/TTC breakdown table, HT/TVA/TTC totals, the amount spelled out in words, and a signature box */
+/* the formal tax-invoice / proforma layout, modeled on a real Algerian "Facture"/"Facture proforma"
+   template: a two-column letterhead (seller block / client block), a big centered title, the
+   invoice number with a decorative barcode-style bar, a 5-column HT/TVA/TTC table, amount-in-words
+   on one side and a boxed HT/TVA/Timbre/Net-à-payer recap on the other, then a signature box */
 function officialPrintHtml(inv, maxWidth) {
   var c = inv.customerId ? cust(inv.customerId) : null;
   var ar = lang() === 'ar';
-  var row = function (a, b2, bold) { return '<div style="display:flex;justify-content:space-between;gap:8px' + (bold ? ';font-weight:700' : '') + '"><span>' + a + '</span><span>' + b2 + '</span></div>'; };
   var legal = [];
   if (S.settings.rc) legal.push(t('settings.rc') + ': ' + esc(S.settings.rc));
   if (S.settings.nif) legal.push(t('settings.nif') + ': ' + esc(S.settings.nif));
   if (S.settings.nis) legal.push(t('settings.nis') + ': ' + esc(S.settings.nis));
   if (S.settings.art) legal.push(t('settings.art') + ': ' + esc(S.settings.art));
+  if (S.settings.phone) legal.push('<bdi dir="ltr">' + esc(S.settings.phone) + '</bdi>');
+  if (S.settings.address) legal.push(esc(S.settings.address));
   var th = 'border:1px solid #999;padding:4px 6px;background:#f2f2f2;font-size:11px';
   var td = 'border:1px solid #999;padding:4px 6px;font-size:12px';
   var rows = inv.lines.map(function (l) {
@@ -1014,21 +1034,33 @@ function officialPrintHtml(inv, maxWidth) {
       '<td style="' + td + ';text-align:center">' + tvaTxt + '</td>' +
       '<td style="' + td + ';text-align:center"><bdi dir="ltr">' + fmtNum(l.total) + '</bdi> ' + curSuffix() + '</td></tr>';
   }).join('');
+  var stamp = stampDuty(inv);
+  var netToPay = inv.total + stamp;
+  var totalsRow = function (a, b2, bold) { return '<tr' + (bold ? ' style="font-weight:700"' : '') + '><td style="padding:4px 10px;border-bottom:1px solid #ddd">' + a + '</td><td style="padding:4px 10px;border-bottom:1px solid #ddd;text-align:end">' + b2 + '</td></tr>'; };
+  var barcode = '<div style="height:24px;width:130px;margin-top:4px;background:repeating-linear-gradient(90deg,#000 0,#000 2px,#fff 2px,#fff 4px)"></div>';
   return '<div dir="' + (ar ? 'rtl' : 'ltr') + '" style="font-family:Arial,sans-serif;width:100%;max-width:' + (maxWidth || '480px') + ';margin:0 auto;font-size:13px">' +
-    '<div style="text-align:center"><b style="font-size:16px">' + esc(S.settings.shop) + '</b></div>' +
-    (legal.length ? '<div style="font-size:11px;line-height:1.6;margin-top:6px">' + legal.map(function (x) { return '<div>' + x + '</div>'; }).join('') + '</div>' : '') +
-    '<hr><div style="text-align:center"><b>' + docHeading(inv.docType, '<bdi dir="ltr">' + inv.number + '</bdi>') + '</b><br><bdi dir="ltr">' + dt(inv.ts) + '</bdi></div>' +
-    '<div style="margin-top:6px">' + t('receipt.client') + ': ' + (c ? esc(c.name) : t('receipt.walkIn')) + '</div><hr>' +
+    '<div style="display:flex;justify-content:space-between;gap:14px;font-size:11px;line-height:1.6">' +
+    '<div style="text-align:start"><b style="font-size:15px">' + esc(S.settings.shop) + '</b>' + (legal.length ? '<div>' + legal.join('</div><div>') + '</div>' : '') + '</div>' +
+    '<div style="text-align:end"><b>' + t('receipt.client') + ':</b><div>' + (c ? esc(c.name) : t('receipt.walkIn')) + '</div>' + (c && c.phone ? '<div><bdi dir="ltr">' + esc(c.phone) + '</bdi></div>' : '') + '</div>' +
+    '</div>' +
+    '<div style="text-align:center;margin-top:10px"><b style="font-size:21px">' + docTitle(inv.docType) + '</b></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px;font-size:11px">' +
+    '<div>' + docHeading(inv.docType, '<bdi dir="ltr">' + inv.number + '</bdi>') + barcode + '</div>' +
+    '<div style="text-align:end">' + t('sale.payMethod') + ': ' + methodLabel(inv.method) + '<br><bdi dir="ltr">' + dt(inv.ts) + '</bdi></div>' +
+    '</div><hr>' +
     '<table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>' +
     '<th style="' + th + '">' + t('receipt.colItem') + '</th><th style="' + th + '">' + t('receipt.colQty') + '</th><th style="' + th + '">' + t('receipt.colUnitHT') + '</th><th style="' + th + '">' + t('receipt.colTva') + '</th><th style="' + th + '">' + t('receipt.colTotalTTC') + '</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table><hr>' +
-    row(t('receipt.totalHT'), '<bdi dir="ltr">' + fmtNum(inv.subtotal) + '</bdi> ' + curSuffix()) +
-    row(t('receipt.totalTVA'), '<bdi dir="ltr">' + fmtNum(inv.tax) + '</bdi> ' + curSuffix()) +
-    row(t('receipt.totalTTC'), '<bdi dir="ltr">' + fmtNum(inv.total) + '</bdi> ' + curSuffix(), true) +
-    row(t('sale.payMethod'), methodLabel(inv.method)) +
-    (inv.method === 'credit' ? row(t('receipt.paidAmount'), '<bdi dir="ltr">' + fmtNum(inv.paid) + '</bdi> ' + curSuffix()) + row(t('receipt.remaining'), '<bdi dir="ltr">' + fmtNum(inv.total - inv.paid) + '</bdi> ' + curSuffix()) : '') +
-    '<hr><div style="margin-top:4px;font-size:12px">' + esc(amountInWords(inv.total)) + '</div>' +
-    '<div style="margin-top:18px;border:1px dashed #999;border-radius:6px;min-height:70px;padding:8px;text-align:center;font-size:11px;color:#555">' + t('receipt.signatureBox') + '</div>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div style="display:flex;justify-content:space-between;gap:14px;margin-top:14px;align-items:flex-start">' +
+    '<div style="flex:1;font-size:12px">' + esc(amountInWords(inv.total, inv.docType)) + '</div>' +
+    '<table style="border:1px solid #999;border-collapse:collapse;font-size:12px;min-width:170px">' +
+    totalsRow(t('receipt.totalHT'), '<bdi dir="ltr">' + fmtNum(inv.subtotal) + '</bdi> ' + curSuffix()) +
+    totalsRow(t('receipt.totalTVA'), '<bdi dir="ltr">' + fmtNum(inv.tax) + '</bdi> ' + curSuffix()) +
+    totalsRow(t('receipt.stampDuty'), '<bdi dir="ltr">' + fmtNum(stamp) + '</bdi> ' + curSuffix()) +
+    totalsRow(t('receipt.netToPay'), '<bdi dir="ltr">' + fmtNum(netToPay) + '</bdi> ' + curSuffix(), true) +
+    '</table></div>' +
+    (inv.method === 'credit' ? '<div style="margin-top:6px;font-size:12px">' + t('receipt.paidAmount') + ': <bdi dir="ltr">' + fmtNum(inv.paid) + '</bdi> ' + curSuffix() + ' — ' + t('receipt.remaining') + ': <bdi dir="ltr">' + fmtNum(inv.total - inv.paid) + '</bdi> ' + curSuffix() + '</div>' : '') +
+    '<div style="margin-top:16px;border:1px dashed #999;border-radius:6px;min-height:60px;padding:8px;text-align:center;font-size:11px;color:#555">' + t('receipt.signatureBox') + '</div>' +
     '<hr><div style="text-align:center">' + t('receipt.thanks') + '</div></div>';
 }
 /* official invoices/proformas go to a real printer on A4 paper, not an 80mm thermal roll:
@@ -1293,6 +1325,7 @@ function formSettings() {
     field('nif', t('settings.nif'), 'type="text" autocomplete="off" value="' + esc(S.settings.nif || '') + '"') +
     field('nis', t('settings.nis'), 'type="text" autocomplete="off" value="' + esc(S.settings.nis || '') + '"') +
     field('art', t('settings.art'), 'type="text" autocomplete="off" value="' + esc(S.settings.art || '') + '"') +
+    field('stampDutyRate', t('settings.stampDutyRate') + ' %', 'type="number" inputmode="decimal" min="0" step="0.01" value="' + esc(S.settings.stampDutyRate || '') + '"') +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
     '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
 }
@@ -1358,6 +1391,7 @@ var HANDLERS = {
     S.settings.nif = (fd.get('nif') || '').trim();
     S.settings.nis = (fd.get('nis') || '').trim();
     S.settings.art = (fd.get('art') || '').trim();
+    S.settings.stampDutyRate = (fd.get('stampDutyRate') || '').trim();
     var newLang = fd.get('lang'); if (newLang !== 'ar' && newLang !== 'fr' && newLang !== 'en') newLang = 'ar';
     S.settings.lang = newLang;
     var newCountry = fd.get('country'); if (!countryOf(newCountry)) newCountry = 'DZ';

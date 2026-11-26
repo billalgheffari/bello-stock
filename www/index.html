@@ -168,7 +168,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.4.0';
+var APP_VERSION = '1.4.2';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -352,6 +352,8 @@ var STR = {
   'party.nameRequired': { ar: 'اكتب اسم العميل', fr: 'Entrez le nom du client', en: 'Enter the customer’s name' },
   'party.supplierNameRequired': { ar: 'اكتب اسم المورد', fr: 'Entrez le nom du fournisseur', en: 'Enter the supplier’s name' },
   'party.added': { ar: 'تمت إضافة العميل', fr: 'Client ajouté', en: 'Customer added' },
+  'party.customerUpdated': { ar: 'تم تحديث بيانات العميل', fr: 'Client mis à jour', en: 'Customer updated' },
+  'party.edit': { ar: 'تعديل البيانات', fr: 'Modifier', en: 'Edit' },
   'party.supplierAdded': { ar: 'تمت إضافة المورد', fr: 'Fournisseur ajouté', en: 'Supplier added' },
   'party.paymentRecorded': { ar: 'تم تسجيل الدفعة', fr: 'Paiement enregistré', en: 'Payment recorded' },
   'party.invoiceRecorded': { ar: 'تم تسجيل الفاتورة', fr: 'Facture enregistrée', en: 'Invoice recorded' },
@@ -382,8 +384,9 @@ var STR = {
   'reports.allAboveMin': { ar: 'كل المنتجات فوق الحد الأدنى', fr: 'Tous les produits sont au-dessus du seuil minimum', en: 'All products are above the minimum' },
   'reports.of': { ar: 'من', fr: 'sur', en: 'of' },
   'reports.note': { ar: 'الربح يحسب من سعر الشراء المسجّل في المنتج. في التطبيق الحقيقي يوجد 19 تقريرًا بنطاق تاريخ قابل للاختيار.', fr: 'Le bénéfice est calculé à partir du prix d’achat enregistré du produit. L’application réelle propose 19 rapports avec une plage de dates au choix.', en: 'Profit is calculated from the product’s recorded purchase price. The real app has 19 reports with a selectable date range.' },
-  'reports.resetDemo': { ar: 'إعادة ضبط البيانات التجريبية', fr: 'Réinitialiser les données de démo', en: 'Reset demo data' },
-  'reports.resetDone': { ar: 'عادت البيانات التجريبية', fr: 'Les données de démo ont été restaurées', en: 'Demo data restored' },
+  'reports.resetDemo': { ar: 'مسح كل البيانات', fr: 'Effacer toutes les données', en: 'Clear all data' },
+  'reports.resetDone': { ar: 'تم مسح البيانات', fr: 'Données effacées', en: 'Data cleared' },
+  'reports.resetConfirm': { ar: 'هذا يمسح كل المنتجات، الفواتير، الزبائن والموردين نهائيًا. متأكد؟', fr: 'Cela efface définitivement tous les produits, factures, clients et fournisseurs. Confirmer ?', en: 'This permanently erases all products, invoices, customers and suppliers. Are you sure?' },
   'form.productNew': { ar: 'منتج جديد', fr: 'Nouveau produit', en: 'New product' },
   'form.name': { ar: 'الاسم', fr: 'Nom', en: 'Name' },
   'form.sellPrice': { ar: 'سعر البيع', fr: 'Prix de vente', en: 'Sale price' },
@@ -399,6 +402,8 @@ var STR = {
   'form.stockIncreased': { ar: 'تمت زيادة المخزون', fr: 'Le stock a été augmenté', en: 'Stock increased' },
   'form.validQty': { ar: 'أدخل كمية صحيحة', fr: 'Entrez une quantité valide', en: 'Enter a valid quantity' },
   'form.customerNew': { ar: 'عميل جديد', fr: 'Nouveau client', en: 'New customer' },
+  'form.customerEdit': { ar: 'تعديل بيانات العميل', fr: 'Modifier le client', en: 'Edit customer' },
+  'form.address': { ar: 'العنوان', fr: 'Adresse', en: 'Address' },
   'form.supplierNew': { ar: 'مورد جديد', fr: 'Nouveau fournisseur', en: 'New supplier' },
   'form.phone': { ar: 'الهاتف', fr: 'Téléphone', en: 'Phone' },
   'form.priorDebt': { ar: 'دين سابق', fr: 'Dette précédente', en: 'Prior debt' },
@@ -692,31 +697,14 @@ function norm(s) {
     .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').toLowerCase().trim();
 }
 function seed() {
-  var now = Date.now(), day = 86400000, da = function (n) { return n * 100; };
   var st = {
-    settings: { includeTax: true, shop: 'بقالة الأمل (مثال)', phone: '', address: '', rc: '', nif: '', nis: '', art: '', stampDutyRate: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
-    seq: { id: 100, inv: 0 },
-    products: [
-      { id: 1, name: 'حليب 1 لتر', price: da(70), taxBp: 0, cost: da(55), min: 10 },
-      { id: 2, name: 'خبز', price: da(10), taxBp: 0, cost: da(7), min: 20 },
-      { id: 3, name: 'قهوة 250 غ', price: da(380), taxBp: 1900, cost: da(300), min: 4 },
-      { id: 4, name: 'سكر 1 كغ', price: da(110), taxBp: 0, cost: da(90), min: 10 },
-      { id: 5, name: 'زيت 1 لتر', price: da(190), taxBp: 0, cost: da(160), min: 6 },
-      { id: 6, name: 'شاي أخضر', price: da(120), taxBp: 0, cost: da(95), min: 5 }
-    ],
-    customers: [
-      { id: 1, name: 'عمي مراد', phone: '0555 00 00 01' },
-      { id: 2, name: 'سعيد', phone: '0555 00 00 02' }
-    ],
-    suppliers: [
-      { id: 1, name: 'مورد الجملة (مثال)', phone: '0666 00 00 01' }
-    ],
+    settings: { includeTax: true, shop: '', phone: '', address: '', rc: '', nif: '', nis: '', art: '', stampDutyRate: '', lang: 'ar', country: 'DZ', currency: 'DZD' },
+    seq: { id: 0, inv: 0 },
+    products: [],
+    customers: [],
+    suppliers: [],
     invoices: [], stock: [], ledger: [], fund: [], expenses: []
   };
-  [[1, 24], [2, 60], [3, 6], [4, 8], [5, 15], [6, 12]].forEach(function (p) { st.stock.push({ pid: p[0], qty: p[1] * 1000, kind: 'opening', ts: now - 5 * day }); });
-  st.ledger.push({ cid: 1, ts: now - 4 * day, kind: 'opening', amount: da(3200), note: 'رصيد افتتاحي' });
-  st.ledger.push({ sid: 1, ts: now - 3 * day, kind: 'opening', amount: da(1500), note: 'رصيد افتتاحي (ندين به)' });
-  st.fund.push({ ts: now - 5 * day, kind: 'manual_in', method: 'cash', amount: da(5000), note: 'رصيد افتتاحي' });
   return st;
 }
 function load() {
@@ -1386,8 +1374,10 @@ function showSupplier(sid) {
 }
 function showCustomer(cid) {
   var c = cust(cid), b = balanceOf(cid), rows = statementRows(cid).reverse();
-  var h = '<div class="card stat"><div class="k">' + (b > 0 ? t('party.owesUsFull') : b < 0 ? t('party.creditBalanceFull') : t('party.balance')) + '</div><div class="v ' + (b > 0 ? 'bad' : '') + '">' + m(Math.abs(b)) + '</div></div>' +
-    '<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="payment" data-id="' + cid + '">' + t('party.recordPayment') + '</button><button type="button" class="btn" data-act="copyStatement" data-id="' + cid + '">' + t('party.copyStatement') + '</button></div>' +
+  var info = (c.phone ? '<div class="sub num" dir="ltr" style="text-align:start">' + esc(c.phone) + '</div>' : '') + (c.address ? '<div class="sub" style="text-align:start">' + esc(c.address) + '</div>' : '');
+  var h = (info ? '<div style="margin-bottom:10px">' + info + '</div>' : '') +
+    '<div class="card stat"><div class="k">' + (b > 0 ? t('party.owesUsFull') : b < 0 ? t('party.creditBalanceFull') : t('party.balance')) + '</div><div class="v ' + (b > 0 ? 'bad' : '') + '">' + m(Math.abs(b)) + '</div></div>' +
+    '<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="payment" data-id="' + cid + '">' + t('party.recordPayment') + '</button><button type="button" class="btn" data-act="copyStatement" data-id="' + cid + '">' + t('party.copyStatement') + '</button><button type="button" class="btn" data-act="editCustomer" data-id="' + cid + '">' + t('party.edit') + '</button></div>' +
     '<h2 class="sec">' + t('party.statement') + '</h2><div class="card">' + (rows.length ? rows.map(function (r) {
       return '<div class="row"><div class="grow"><div class="name">' + esc(r.note) + '</div><div class="sub num">' + dt(r.ts) + '</div></div><div class="end"><div class="' + (r.amount > 0 ? 'bad' : 'good') + '">' + (r.amount > 0 ? '+' : '') + m(r.amount) + '</div><div class="sub">' + t('party.balance') + ' ' + m(r.run) + '</div></div></div>';
     }).join('') : '<div class="empty">' + t('party.noMoves') + '</div>') + '</div>';
@@ -1447,8 +1437,15 @@ function formEditProduct(p) {
 }
 function formCustomer() {
   openSheet(t('form.customerNew'), '<form data-form="customer">' + field('name', t('form.name'), 'type="text" required autocomplete="off"') + field('phone', t('form.phone'), 'type="tel" inputmode="tel" autocomplete="off"') +
+    field('address', t('form.address'), 'type="text" autocomplete="off"') +
     field('debt', t('form.priorDebt') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('form.saveCustomer') + '</button></div></form>');
+}
+function formEditCustomer(c) {
+  openSheet(t('form.customerEdit'), '<form data-form="editCustomer" data-id="' + c.id + '">' + field('name', t('form.name'), 'type="text" required autocomplete="off" value="' + esc(c.name) + '"') +
+    field('phone', t('form.phone'), 'type="tel" inputmode="tel" autocomplete="off" value="' + esc(c.phone || '') + '"') +
+    field('address', t('form.address'), 'type="text" autocomplete="off" value="' + esc(c.address || '') + '"') +
+    '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>');
 }
 function formAmount(title, kind, extra, hidden) {
   openSheet(title, '<form data-form="' + kind + '"' + (hidden ? ' data-id="' + hidden + '"' : '') + '>' + extra + field('amount', t('form.amount') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" required') +
@@ -1479,6 +1476,10 @@ function formSettings() {
     field('stampDutyRate', t('settings.stampDutyRate') + ' %', 'type="number" inputmode="decimal" min="0" step="0.01" value="' + esc(S.settings.stampDutyRate || '') + '"') +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
     '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
+}
+function formResetConfirm() {
+  openSheet(t('reports.resetDemo'), '<div class="note">' + t('reports.resetConfirm') + '</div>' +
+    '<div class="actions" style="margin-top:16px"><button type="button" class="btn" data-act="closeSheet">' + t('common.cancel') + '</button><button type="button" class="btn danger" data-act="confirmReset">' + t('reports.resetDemo') + '</button></div>');
 }
 function formDeleteProduct(p) {
   openSheet(t('products.deleteTitle'), '<div class="note">' + t('products.deleteText') + '</div>' +
@@ -1518,10 +1519,16 @@ var HANDLERS = {
   },
   customer: function (f, fd) {
     var name = fd.get('name').trim(); if (!name) throw new Error(t('party.nameRequired'));
-    var c = { id: nid(), name: name, phone: fd.get('phone').trim() };
+    var c = { id: nid(), name: name, phone: fd.get('phone').trim(), address: (fd.get('address') || '').trim() };
     S.customers.push(c);
     var d = toCents(fd.get('debt')); if (d > 0) S.ledger.push({ cid: c.id, ts: Date.now(), kind: 'opening', amount: d, note: t('form.priorDebt') });
     save(); closeSheet(); render(); toast(t('party.added'));
+  },
+  editCustomer: function (f, fd) {
+    var c = cust(+f.dataset.id); if (!c) return;
+    var name = fd.get('name').trim(); if (!name) throw new Error(t('party.nameRequired'));
+    c.name = name; c.phone = (fd.get('phone') || '').trim(); c.address = (fd.get('address') || '').trim();
+    save(); closeSheet(); render(); toast(t('party.customerUpdated'));
   },
   restock: function (f, fd) {
     var q = parseInt(fd.get('amount'), 10); if (!(q > 0)) throw new Error(t('form.validQty'));
@@ -1603,6 +1610,7 @@ var ACTS = {
   deleteProduct: function (b) { var p = prod(+b.dataset.id); if (p) formDeleteProduct(p); },
   confirmDeleteProduct: function (b) { deleteProduct(+b.dataset.id); closeSheet(); render(); toast(t('products.deleted')); },
   customer: function (b) { showCustomer(+b.dataset.id); },
+  editCustomer: function (b) { var c = cust(+b.dataset.id); if (c) formEditCustomer(c); },
   payment: function (b) {
     formAmount(t('party.recordPayment'), 'payment', '<label class="f" for="method">' + t('sale.payMethod') + '</label><select id="method" name="method">' + methodOptions('cash', true) + '</select>', b.dataset.id);
   },
@@ -1652,7 +1660,8 @@ var ACTS = {
   },
   supplierDebt: function (b) { formAmount(t('form.supplierInvoiceTitle'), 'supplierDebt', field('note', t('form.invoiceNotePh'), 'type="text" autocomplete="off"'), b.dataset.id); },
   settings: formSettings,
-  reset: function () { S = seed(); ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash'; save(); applyLangAttrs(); render(); toast(t('reports.resetDone')); }
+  reset: formResetConfirm,
+  confirmReset: function () { S = seed(); ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash'; save(); closeSheet(); applyLangAttrs(); render(); toast(t('reports.resetDone')); }
 };
 document.addEventListener('click', function (e) {
   var b = e.target.closest('[data-act]'); if (!b || !ACTS[b.dataset.act]) return;

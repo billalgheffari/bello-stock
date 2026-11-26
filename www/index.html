@@ -168,7 +168,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.4.0';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -209,6 +209,10 @@ var STR = {
   'activate.submit': { ar: 'تفعيل', fr: 'Activer', en: 'Activate' },
   'activate.required': { ar: 'دخّل رقم الهاتف ورمز التفعيل.', fr: 'Entrez le numéro de téléphone et le code.', en: 'Enter the phone number and the code.' },
   'activate.invalid': { ar: 'رمز التفعيل غير صحيح لهذا الرقم.', fr: 'Code d’activation invalide pour ce numéro.', en: 'Invalid activation code for this number.' },
+  'activate.checking': { ar: 'جاري التحقق...', fr: 'Vérification...', en: 'Checking...' },
+  'activate.usedElsewhere': { ar: 'هذا الرمز مستعمل مسبقا في جهاز آخر.', fr: 'Ce code est déjà utilisé sur un autre appareil.', en: 'This code is already used on another device.' },
+  'activate.networkError': { ar: 'تأكد من اتصالك بالانترنت وحاول مرة أخرى.', fr: 'Vérifiez votre connexion internet et réessayez.', en: 'Check your internet connection and try again.' },
+  'activate.serverError': { ar: 'وقع مشكل، حاول مرة أخرى بعد قليل.', fr: 'Une erreur est survenue, réessayez plus tard.', en: 'Something went wrong, try again shortly.' },
   'settings.rc': { ar: 'السجل التجاري (RC)', fr: 'Registre de commerce (RC)', en: 'Trade register (RC)' },
   'settings.nif': { ar: 'رقم التعريف الجبائي (NIF)', fr: 'Identifiant fiscal (NIF)', en: 'Tax ID (NIF)' },
   'settings.nis': { ar: 'رقم التعريف الإحصائي (NIS)', fr: 'Identifiant statistique (NIS)', en: 'Statistical ID (NIS)' },
@@ -747,6 +751,65 @@ S = load();
    from-scratch checksum (not real cryptography) is enough for that job here. */
 var LICENSE_KEY = 'bello_stock_license_v1';
 var ACTIVATION_SECRET = 'BELLO-STOCK-2026-DZ';
+/* ---------- one-device-only enforcement: a tiny Supabase table is the single source of
+   truth for which device a phone+code pair is claimed on. A code can be checked (SELECT)
+   by anyone, but can only be CLAIMED (UPDATE device_id) while device_id is still empty -
+   enforced by the database's own row-level-security policy, not just this client code, so
+   a modified copy of this app still can't reuse an already-claimed code on a second phone. */
+var SUPABASE_URL = 'https://cgvuvpxivfcfnywftewi.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_tL-LlQ6qn1ZH66Auao0L1Q_2W5-Xzqx';
+var DEVICE_ID_KEY = 'bello_stock_device_id';
+function fallbackDeviceId() {
+  try {
+    var id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch (e) { return 'dev-' + Date.now().toString(36); }
+}
+function getDeviceId() {
+  return new Promise(function (resolve) {
+    try {
+      var D = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Device;
+      if (D && D.getId) {
+        D.getId().then(function (r) { resolve((r && r.identifier) || fallbackDeviceId()); })
+          .catch(function () { resolve(fallbackDeviceId()); });
+        return;
+      }
+    } catch (e) {}
+    resolve(fallbackDeviceId());
+  });
+}
+function sbFetch(path, opts) {
+  opts = opts || {};
+  var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+  for (var k in (opts.headers || {})) headers[k] = opts.headers[k];
+  return fetch(SUPABASE_URL + '/rest/v1/' + path, { method: opts.method || 'GET', headers: headers, body: opts.body })
+    .then(function (res) {
+      if (!res.ok) throw new Error(t('activate.serverError'));
+      return res.status === 204 ? [] : res.json();
+    }, function () { throw new Error(t('activate.networkError')); });
+}
+function claimActivation(phone, code) {
+  var digits = (phone || '').replace(/\D/g, '');
+  return getDeviceId().then(function (deviceId) {
+    return sbFetch('activations?phone=eq.' + encodeURIComponent(digits) + '&code=eq.' + encodeURIComponent(code) + '&select=id,device_id').then(function (rows) {
+      if (!rows || !rows.length) throw new Error(t('activate.invalid'));
+      var row = rows[0];
+      if (row.device_id && row.device_id === deviceId) return; // same device (e.g. reinstall) - allow
+      if (row.device_id) throw new Error(t('activate.usedElsewhere'));
+      return sbFetch('activations?id=eq.' + row.id + '&device_id=is.null', {
+        method: 'PATCH',
+        headers: { 'Prefer': 'return=representation' },
+        body: JSON.stringify({ device_id: deviceId, activated_at: new Date().toISOString() })
+      }).then(function (updated) {
+        if (!updated || !updated.length) throw new Error(t('activate.usedElsewhere'));
+      });
+    });
+  });
+}
 function computeActivationCode(phone) {
   var digits = (phone || '').replace(/\D/g, '');
   var s = digits + '|' + ACTIVATION_SECRET;
@@ -1427,9 +1490,16 @@ var HANDLERS = {
     var code = (fd.get('code') || '').trim().toUpperCase();
     if (!phone || !code) throw new Error(t('activate.required'));
     if (computeActivationCode(phone) !== code) throw new Error(t('activate.invalid'));
-    setLicense(phone, code);
-    document.getElementById('activateWrap').hidden = true;
-    startApp();
+    var btn = f.querySelector('button[type="submit"]'), oldLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = t('activate.checking'); }
+    claimActivation(phone, code).then(function () {
+      setLicense(phone, code);
+      document.getElementById('activateWrap').hidden = true;
+      startApp();
+    }).catch(function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+      toast((err && err.message) || t('activate.serverError'));
+    });
   },
   product: function (f, fd) {
     var name = fd.get('name').trim(); if (!name) throw new Error(t('form.productNameRequired'));

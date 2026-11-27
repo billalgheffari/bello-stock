@@ -168,7 +168,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.4.3';
+var APP_VERSION = '1.5.0';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -418,6 +418,13 @@ var STR = {
   'form.expenseNew': { ar: 'مصروف جديد', fr: 'Nouvelle dépense', en: 'New expense' },
   'form.category': { ar: 'النوع', fr: 'Catégorie', en: 'Category' },
   'form.date': { ar: 'التاريخ', fr: 'Date', en: 'Date' },
+  'form.barcode': { ar: 'الكود بار (اختياري)', fr: 'Code-barres (optionnel)', en: 'Barcode (optional)' },
+  'barcode.scan': { ar: '📷 مسح', fr: '📷 Scanner', en: '📷 Scan' },
+  'barcode.unsupported': { ar: 'مسح الكود بار غير مدعوم فهاذ الجهاز', fr: 'Le scan de code-barres n’est pas pris en charge sur cet appareil', en: 'Barcode scanning isn’t supported on this device' },
+  'barcode.noneFound': { ar: 'ما تعرفش على كود بار', fr: 'Aucun code-barres détecté', en: 'No barcode detected' },
+  'barcode.installing': { ar: 'جاري تجهيز الماسح لأول مرة، دقيقة...', fr: 'Préparation du scanner (première fois)...', en: 'Preparing the scanner for the first time...' },
+  'sale.scanBtn': { ar: '📷 مسح كود بار', fr: '📷 Scanner un code-barres', en: '📷 Scan a barcode' },
+  'sale.barcodeNotFound': { ar: 'ماكاين منتج مسجل بهاذ الكود بار', fr: 'Aucun produit enregistré avec ce code-barres', en: 'No product registered with this barcode' },
   'form.expenseRecorded': { ar: 'تم تسجيل المصروف', fr: 'Dépense enregistrée', en: 'Expense recorded' },
   'form.settingsSaved': { ar: 'تم حفظ الإعدادات', fr: 'Paramètres enregistrés', en: 'Settings saved' },
   'cat.rent': { ar: 'كراء', fr: 'Loyer', en: 'Rent' },
@@ -838,6 +845,10 @@ function stockOf(pid) { var t = 0; S.stock.forEach(function (x) { if (x.pid === 
 function balanceOf(cid) { var t = 0; S.ledger.forEach(function (x) { if (x.cid === cid) t += x.amount; }); return t; }
 function fundBalance() { var t = 0; S.fund.forEach(function (x) { if (x.method === 'cash') t += x.amount; }); return t; }
 function prod(id) { return S.products.find(function (p) { return p.id === id; }); }
+function prodByBarcode(code) {
+  code = String(code || '').trim(); if (!code) return null;
+  return S.products.find(function (p) { return p.barcode && p.barcode === code; }) || null;
+}
 function cust(id) { return S.customers.find(function (c) { return c.id === id; }); }
 function invById(id) { return S.invoices.find(function (i) { return i.id === id; }); }
 function qtyTxt(milli) { var q = milli / 1000; return Number.isInteger(q) ? String(q) : q.toFixed(2); }
@@ -870,6 +881,11 @@ function methodOptions(selected, excludeCredit) {
   return METHOD_KEYS.filter(function (k) { return !excludeCredit || k !== 'credit'; }).map(function (k) {
     return '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + methodLabel(k) + '</option>';
   }).join('');
+}
+function addProductToCart(id) {
+  var l = ui.cart.find(function (c) { return c.pid === id; });
+  if (l) l.qty++; else ui.cart.push({ pid: id, qty: 1 });
+  cartInto();
 }
 function cartLines(cart) {
   return cart.map(function (c) {
@@ -1021,7 +1037,8 @@ function closeSheet() { document.getElementById('sheetWrap').hidden = true; }
 /* --- sale --- */
 function tabSale() {
   return '<label class="f" for="q" style="margin-top:4px">' + t('sale.searchLabel') + '</label>' +
-    '<input id="q" type="search" placeholder="' + t('sale.searchPh') + '" autocomplete="off" value="' + esc(ui.q) + '">' +
+    '<div style="display:flex;gap:8px"><input id="q" type="search" placeholder="' + t('sale.searchPh') + '" autocomplete="off" style="flex:1" value="' + esc(ui.q) + '">' +
+    '<button type="button" class="btn" data-act="scanSale" style="white-space:nowrap">' + t('sale.scanBtn') + '</button></div>' +
     '<div class="pgrid" id="grid"></div>' +
     '<h2 class="sec">' + t('sale.cart') + '</h2><div id="cart"></div>';
 }
@@ -1216,6 +1233,35 @@ function loadScript(src) {
     document.head.appendChild(s);
   });
   return _loadedScripts[src];
+}
+/* ---------- barcode scanning (camera), via the ML Kit plugin ---------- */
+function barcodeScannerPlugin() { return window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.BarcodeScanner; }
+function scanBarcode() {
+  var BS = barcodeScannerPlugin();
+  if (!BS || !BS.scan) return Promise.reject(new Error(t('barcode.unsupported')));
+  function doScan() {
+    return BS.scan({}).then(function (res) {
+      var b = res && res.barcodes && res.barcodes[0];
+      var val = b && (b.rawValue || b.displayValue);
+      if (!val) throw new Error(t('barcode.noneFound'));
+      return val;
+    });
+  }
+  if (!BS.isGoogleBarcodeScannerModuleAvailable) return doScan();
+  return BS.isGoogleBarcodeScannerModuleAvailable().then(function (r) {
+    if (r && r.available) return doScan();
+    toast(t('barcode.installing'));
+    return new Promise(function (resolve, reject) {
+      var handle;
+      BS.addListener('googleBarcodeScannerModuleInstallProgress', function (ev) {
+        if (ev && (ev.state === 'COMPLETED' || ev.state === 'completed')) {
+          if (handle) handle.remove();
+          doScan().then(resolve).catch(reject);
+        }
+      }).then(function (h) { handle = h; });
+      BS.installGoogleBarcodeScannerModule().catch(function (e) { reject(e); });
+    });
+  });
 }
 function renderReceiptCanvas(inv) {
   var isOfficial = inv.docType === 'invoice' || inv.docType === 'proforma';
@@ -1433,17 +1479,24 @@ function tabReports() {
 
 /* ---------- forms in sheets ---------- */
 function field(id, label, attrs) { return '<label class="f" for="' + id + '">' + label + '</label><input id="' + id + '" name="' + id + '" ' + (attrs || '') + '>'; }
+function barcodeFieldHtml(value) {
+  return '<label class="f" for="barcode">' + t('form.barcode') + '</label>' +
+    '<div style="display:flex;gap:8px"><input id="barcode" name="barcode" type="text" autocomplete="off" style="flex:1" value="' + esc(value || '') + '">' +
+    '<button type="button" class="btn" data-act="scanBarcodeInto" data-target="barcode" style="white-space:nowrap">' + t('barcode.scan') + '</button></div>';
+}
 function formProduct() {
   openSheet(t('form.productNew'), '<form data-form="product">' + field('name', t('form.name'), 'type="text" required autocomplete="off"') +
     '<div class="grid2"><div>' + field('price', t('form.sellPrice') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" required') + '</div><div>' + field('cost', t('form.costPrice') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" value="0"') + '</div>' +
     '<div>' + field('tax', t('form.taxPct'), 'type="number" inputmode="decimal" min="0" max="100" step="0.01" value="0"') + '</div><div>' + field('min', t('form.minAlert'), 'type="number" inputmode="numeric" min="0" step="1" value="0"') + '</div></div>' +
     field('open', t('form.currentStock'), 'type="number" inputmode="numeric" min="0" step="1" value="0"') +
+    barcodeFieldHtml('') +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('form.saveProduct') + '</button></div></form>');
 }
 function formEditProduct(p) {
   openSheet(t('form.productEdit'), '<form data-form="editProduct" data-id="' + p.id + '">' + field('name', t('form.name'), 'type="text" required autocomplete="off" value="' + esc(p.name) + '"') +
     '<div class="grid2"><div>' + field('price', t('form.sellPrice') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" required value="' + (p.price / 100) + '"') + '</div><div>' + field('cost', t('form.costPrice') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" value="' + (p.cost / 100) + '"') + '</div>' +
     '<div>' + field('tax', t('form.taxPct'), 'type="number" inputmode="decimal" min="0" max="100" step="0.01" value="' + (p.taxBp / 100) + '"') + '</div><div>' + field('min', t('form.minAlert'), 'type="number" inputmode="numeric" min="0" step="1" value="' + p.min + '"') + '</div></div>' +
+    barcodeFieldHtml(p.barcode) +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>');
 }
 function formCustomer() {
@@ -1515,7 +1568,7 @@ var HANDLERS = {
   },
   product: function (f, fd) {
     var name = fd.get('name').trim(); if (!name) throw new Error(t('form.productNameRequired'));
-    var p = { id: nid(), name: name, price: toCents(fd.get('price')), taxBp: Math.round(parseFloat(fd.get('tax') || 0) * 100), cost: toCents(fd.get('cost')), min: parseInt(fd.get('min') || 0, 10) || 0 };
+    var p = { id: nid(), name: name, price: toCents(fd.get('price')), taxBp: Math.round(parseFloat(fd.get('tax') || 0) * 100), cost: toCents(fd.get('cost')), min: parseInt(fd.get('min') || 0, 10) || 0, barcode: (fd.get('barcode') || '').trim() };
     S.products.push(p);
     var o = parseInt(fd.get('open') || 0, 10) || 0;
     if (o > 0) S.stock.push({ pid: p.id, qty: o * 1000, kind: 'opening', ts: Date.now() });
@@ -1525,7 +1578,7 @@ var HANDLERS = {
     var p = prod(+f.dataset.id); if (!p) return;
     var name = fd.get('name').trim(); if (!name) throw new Error(t('form.productNameRequired'));
     p.name = name; p.price = toCents(fd.get('price')); p.taxBp = Math.round(parseFloat(fd.get('tax') || 0) * 100);
-    p.cost = toCents(fd.get('cost')); p.min = parseInt(fd.get('min') || 0, 10) || 0;
+    p.cost = toCents(fd.get('cost')); p.min = parseInt(fd.get('min') || 0, 10) || 0; p.barcode = (fd.get('barcode') || '').trim();
     save(); closeSheet(); render(); toast(t('form.productUpdated'));
   },
   customer: function (f, fd) {
@@ -1600,10 +1653,18 @@ var ACTS = {
   },
   back: function () { history.back(); },
   closeSheet: function () { closeSheet(); render(); },
-  add: function (b) {
-    var id = +b.dataset.id, l = ui.cart.find(function (c) { return c.pid === id; });
-    if (l) l.qty++; else ui.cart.push({ pid: id, qty: 1 });
-    cartInto();
+  add: function (b) { addProductToCart(+b.dataset.id); },
+  scanBarcodeInto: function (b) {
+    var target = document.getElementById(b.dataset.target);
+    scanBarcode().then(function (val) { if (target) target.value = val; }).catch(function (err) { toast((err && err.message) || t('barcode.unsupported')); });
+  },
+  scanSale: function () {
+    scanBarcode().then(function (val) {
+      var p = prodByBarcode(val);
+      if (!p) { toast(t('sale.barcodeNotFound')); return; }
+      addProductToCart(p.id);
+      toast(p.name);
+    }).catch(function (err) { toast((err && err.message) || t('barcode.unsupported')); });
   },
   inc: function (b) { ui.cart[+b.dataset.i].qty++; cartInto(); },
   dec: function (b) { var l = ui.cart[+b.dataset.i]; l.qty--; if (l.qty <= 0) ui.cart.splice(+b.dataset.i, 1); cartInto(); },

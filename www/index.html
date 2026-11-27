@@ -168,7 +168,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.4.2';
+var APP_VERSION = '1.4.3';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -417,6 +417,7 @@ var STR = {
   'form.invoiceNotePh': { ar: 'ملاحظة (مثلاً: فاتورة رقم ...)', fr: 'Note (par ex. : facture n° ...)', en: 'Note (e.g., invoice #...)' },
   'form.expenseNew': { ar: 'مصروف جديد', fr: 'Nouvelle dépense', en: 'New expense' },
   'form.category': { ar: 'النوع', fr: 'Catégorie', en: 'Category' },
+  'form.date': { ar: 'التاريخ', fr: 'Date', en: 'Date' },
   'form.expenseRecorded': { ar: 'تم تسجيل المصروف', fr: 'Dépense enregistrée', en: 'Expense recorded' },
   'form.settingsSaved': { ar: 'تم حفظ الإعدادات', fr: 'Paramètres enregistrés', en: 'Settings saved' },
   'cat.rent': { ar: 'كراء', fr: 'Loyer', en: 'Rent' },
@@ -845,6 +846,15 @@ function dt(ts) {
   return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 function startOfToday() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function todayISODate() {
+  var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function dateInputToTs(v) {
+  if (!v) return Date.now();
+  var parts = v.split('-'), d = new Date(+parts[0], +parts[1] - 1, +parts[2], 12, 0, 0);
+  return isNaN(d.getTime()) ? Date.now() : d.getTime();
+}
 
 /* ---------- domain functions: each one is a single atomic update, like the data layer in architecture.md ---------- */
 var METHOD_KEYS = ['cash', 'credit', 'card', 'cheque', 'wallet'];
@@ -911,11 +921,12 @@ function recordSupplierDebt(sid, amount, note) {
   S.ledger.push({ sid: sid, ts: Date.now(), kind: 'invoice', amount: amount, note: note || t('form.supplierInvoiceTitle') });
   save();
 }
-function addExpense(cat, amount, note) {
+function addExpense(cat, amount, note, method, ts) {
   if (amount <= 0) throw new Error(t('form.validAmount'));
-  var ts = Date.now(), id = nid();
-  S.expenses.push({ id: id, cat: cat, ts: ts, amount: amount, note: note });
-  S.fund.push({ ts: ts, kind: 'expense', method: 'cash', amount: -amount, doc: id, note: cat });
+  ts = ts || Date.now();
+  var id = nid(), m = method || 'cash', label = STR['cat.' + cat] ? t('cat.' + cat) : cat;
+  S.expenses.push({ id: id, cat: cat, ts: ts, amount: amount, note: note, method: m });
+  S.fund.push({ ts: ts, kind: 'expense', method: m, amount: -amount, doc: id, note: label });
   save();
 }
 function addFundEntry(dir, amount, note) {
@@ -1539,7 +1550,10 @@ var HANDLERS = {
     recordCustomerPayment(+f.dataset.id, toCents(fd.get('amount')), fd.get('method') || 'cash');
     closeSheet(); render(); toast(t('party.paymentRecorded'));
   },
-  expense: function (f, fd) { addExpense(fd.get('cat'), toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast(t('form.expenseRecorded')); },
+  expense: function (f, fd) {
+    addExpense(fd.get('cat'), toCents(fd.get('amount')), (fd.get('note') || '').trim(), fd.get('method') || 'cash', dateInputToTs(fd.get('date')));
+    closeSheet(); render(); toast(t('form.expenseRecorded'));
+  },
   fundin: function (f, fd) { addFundEntry('in', toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast(t('cash.deposited')); },
   fundout: function (f, fd) { addFundEntry('out', toCents(fd.get('amount')), (fd.get('note') || '').trim()); closeSheet(); render(); toast(t('cash.withdrawn')); },
   supplier: function (f, fd) {
@@ -1581,6 +1595,7 @@ var ACTS = {
   home: function (b) {
     var key = b.dataset.key;
     if (key === 'suppliers' || key === 'customers') { ui.partyTab = key; nav('customers'); }
+    else if (key === 'expense') { nav('cash'); ACTS.expense(); }
     else nav(key);
   },
   back: function () { history.back(); },
@@ -1650,7 +1665,13 @@ var ACTS = {
   fundOut: function () { formAmount(t('cash.outTitle'), 'fundout', field('note', t('common.note'), 'type="text" autocomplete="off"')); },
   expense: function () {
     var cats = ['rent', 'utilities', 'wages', 'transport', 'other'];
-    formAmount(t('form.expenseNew'), 'expense', '<label class="f" for="cat">' + t('form.category') + '</label><select id="cat" name="cat">' + cats.map(function (c) { return '<option>' + t('cat.' + c) + '</option>'; }).join('') + '</select>' + field('note', t('common.note'), 'type="text" autocomplete="off"'));
+    openSheet(t('form.expenseNew'), '<form data-form="expense">' +
+      '<label class="f" for="cat">' + t('form.category') + '</label><select id="cat" name="cat">' + cats.map(function (c) { return '<option value="' + c + '">' + t('cat.' + c) + '</option>'; }).join('') + '</select>' +
+      field('note', t('common.note'), 'type="text" autocomplete="off"') +
+      field('amount', t('form.amount') + ' (' + curSuffix() + ')', 'type="number" inputmode="decimal" min="0" step="0.01" required') +
+      '<label class="f" for="method">' + t('sale.payMethod') + '</label><select id="method" name="method">' + methodOptions('cash', true) + '</select>' +
+      field('date', t('form.date'), 'type="date" value="' + todayISODate() + '"') +
+      '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>');
   },
   partyTab: function (b) { ui.partyTab = b.dataset.p; render(); },
   newSupplier: formSupplier,

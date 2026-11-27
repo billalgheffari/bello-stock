@@ -1,6 +1,6 @@
 {
   "name": "bello-stock",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
   "description": "Bello stock - accounting and point of sale for small shops",
   "dependencies": {

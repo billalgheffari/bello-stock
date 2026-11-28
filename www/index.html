@@ -168,7 +168,7 @@ nav.tabs { display: none; }
 <div id="toast" role="status" hidden></div>
 
 <script>
-var APP_VERSION = '1.5.0';
+var APP_VERSION = '1.5.1';
 /* ---------- i18n: every user-facing string lives here, in ar/fr/en ---------- */
 var ui = { tab: 'home', q: '', pq: '', sq: '', cq: '', cart: [], method: 'cash', cust: '', paid: '', partyTab: 'customers', docType: 'invoice' };
 function lang() { return (S && S.settings && S.settings.lang) || 'ar'; }
@@ -219,6 +219,14 @@ var STR = {
   'settings.art': { ar: 'رقم المادة الضريبية (AI)', fr: "Article d'imposition (AI)", en: 'Tax article (AI)' },
   'settings.stampDutyRate': { ar: 'نسبة رسم الطابع (اختياري، يحسب فقط عند الدفع نقدًا)', fr: 'Taux du droit de timbre (optionnel, calculé seulement si le paiement est en espèces)', en: 'Stamp duty rate (optional, applied only on cash payments)' },
   'settings.version': { ar: 'الإصدار', fr: 'Version', en: 'Version' },
+  'settings.backupTitle': { ar: 'النسخ الاحتياطي', fr: 'Sauvegarde', en: 'Backup' },
+  'settings.backupNote': { ar: 'صدّر نسخة من كل بياناتك كملف، واحفظها فـ Google Drive أو أي مكان تحب. تقدر ترجعها فأي وقت من نفس الملف.', fr: 'Exportez toutes vos données dans un fichier et enregistrez-le sur Google Drive ou ailleurs. Vous pourrez le restaurer à tout moment depuis ce même fichier.', en: 'Export all your data as a file and save it to Google Drive or anywhere else. You can restore it at any time from that same file.' },
+  'settings.exportBackup': { ar: '📤 تصدير نسخة احتياطية', fr: '📤 Exporter une sauvegarde', en: '📤 Export a backup' },
+  'settings.importBackup': { ar: '📥 استيراد نسخة احتياطية', fr: '📥 Importer une sauvegarde', en: '📥 Import a backup' },
+  'settings.importConfirm': { ar: 'هذا يمسح كل البيانات الحالية فالتطبيق ويعوّضها بالنسخة اللي فالملف. متأكد؟', fr: 'Cela efface toutes les données actuelles et les remplace par celles du fichier. Confirmer ?', en: 'This erases all current data in the app and replaces it with what is in the file. Are you sure?' },
+  'settings.importDone': { ar: 'تم استرجاع النسخة الاحتياطية', fr: 'Sauvegarde restaurée', en: 'Backup restored' },
+  'settings.backupInvalid': { ar: 'هذا الملف ماشي نسخة احتياطية صحيحة لـ Bello stock', fr: 'Ce fichier n’est pas une sauvegarde Bello stock valide', en: 'This file is not a valid Bello stock backup' },
+  'settings.backupFailed': { ar: 'فشل تصدير النسخة الاحتياطية', fr: 'Échec de l’exportation de la sauvegarde', en: 'Failed to export the backup' },
   'titles.sale': { ar: 'بيع', fr: 'Vente', en: 'Sale' },
   'titles.products': { ar: 'المخزون والمنتجات', fr: 'Stock et produits', en: 'Stock and products' },
   'titles.customers': { ar: 'العملاء والموردون', fr: 'Clients et fournisseurs', en: 'Customers and suppliers' },
@@ -715,26 +723,34 @@ function seed() {
   };
   return st;
 }
+function normalizeState(o) {
+  if (!o || !Array.isArray(o.products) || !Array.isArray(o.customers)) return null;
+  if (!Array.isArray(o.suppliers)) o.suppliers = [];
+  if (!Array.isArray(o.invoices)) o.invoices = [];
+  if (!Array.isArray(o.stock)) o.stock = [];
+  if (!Array.isArray(o.ledger)) o.ledger = [];
+  if (!Array.isArray(o.fund)) o.fund = [];
+  if (!Array.isArray(o.expenses)) o.expenses = [];
+  if (!o.seq) o.seq = { id: 0, inv: 0 };
+  if (!o.settings) o.settings = { includeTax: true, shop: '' };
+  if (!o.settings.lang) o.settings.lang = 'ar';
+  if (!o.settings.country) o.settings.country = 'DZ';
+  if (!o.settings.currency) o.settings.currency = 'DZD';
+  if (o.settings.phone == null) o.settings.phone = '';
+  if (o.settings.address == null) o.settings.address = '';
+  if (o.settings.rc == null) o.settings.rc = '';
+  if (o.settings.nif == null) o.settings.nif = '';
+  if (o.settings.nis == null) o.settings.nis = '';
+  if (o.settings.art == null) o.settings.art = '';
+  if (o.settings.stampDutyRate == null) o.settings.stampDutyRate = '';
+  return o;
+}
 function load() {
   try {
     var r = localStorage.getItem(KEY);
     if (r) {
-      var o = JSON.parse(r);
-      if (o && o.products) {
-        if (!o.suppliers) o.suppliers = [];
-        if (!o.settings) o.settings = { includeTax: true, shop: '' };
-        if (!o.settings.lang) o.settings.lang = 'ar';
-        if (!o.settings.country) o.settings.country = 'DZ';
-        if (!o.settings.currency) o.settings.currency = 'DZD';
-        if (o.settings.phone == null) o.settings.phone = '';
-        if (o.settings.address == null) o.settings.address = '';
-        if (o.settings.rc == null) o.settings.rc = '';
-        if (o.settings.nif == null) o.settings.nif = '';
-        if (o.settings.nis == null) o.settings.nis = '';
-        if (o.settings.art == null) o.settings.art = '';
-        if (o.settings.stampDutyRate == null) o.settings.stampDutyRate = '';
-        return o;
-      }
+      var o = normalizeState(JSON.parse(r));
+      if (o) return o;
     }
   } catch (e) {}
   return seed();
@@ -1313,6 +1329,45 @@ function shareReceiptAs(inv, kind) {
     });
   }).catch(function () { toast(t('receipt.shareFailed')); });
 }
+/* ---------- backup: export the whole app state as a JSON file (shared via the normal
+   Android share sheet, so the person can pick "Save to Drive", email it, etc.), and
+   import it back later from that same file. ---------- */
+var _pendingImport = null;
+function exportBackup() {
+  var json = JSON.stringify(S, null, 2);
+  var b64 = btoa(unescape(encodeURIComponent(json)));
+  var filename = 'bello-stock-backup-' + todayISODate() + '.json';
+  var FS = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
+  var ShareP = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
+  if (FS && FS.writeFile && ShareP && ShareP.share) {
+    FS.writeFile({ path: filename, data: b64, directory: 'CACHE', recursive: true }).then(function (res) {
+      return ShareP.share({ url: res.uri, files: [res.uri] }).catch(function () {});
+    }).catch(function () { toast(t('settings.backupFailed')); });
+    return;
+  }
+  try {
+    var a = document.createElement('a');
+    a.href = 'data:application/json;base64,' + b64; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } catch (e) { toast(t('settings.backupFailed')); }
+}
+function importBackupFromFile(file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var obj;
+    try { obj = JSON.parse(String(reader.result)); } catch (e) { toast(t('settings.backupInvalid')); return; }
+    obj = normalizeState(obj);
+    if (!obj) { toast(t('settings.backupInvalid')); return; }
+    formImportConfirm(obj);
+  };
+  reader.onerror = function () { toast(t('settings.backupInvalid')); };
+  reader.readAsText(file);
+}
+function formImportConfirm(obj) {
+  _pendingImport = obj;
+  openSheet(t('settings.importBackup'), '<div class="note">' + t('settings.importConfirm') + '</div>' +
+    '<div class="actions" style="margin-top:16px"><button type="button" class="btn" data-act="closeSheet">' + t('common.cancel') + '</button><button type="button" class="btn danger" data-act="confirmImport">' + t('settings.importBackup') + '</button></div>');
+}
 function shareDataFile(dataUrl, mime, filename, previewDataUrl) {
   var FS = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
   var ShareP = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
@@ -1539,6 +1594,12 @@ function formSettings() {
     field('art', t('settings.art'), 'type="text" autocomplete="off" value="' + esc(S.settings.art || '') + '"') +
     field('stampDutyRate', t('settings.stampDutyRate') + ' %', 'type="number" inputmode="decimal" min="0" step="0.01" value="' + esc(S.settings.stampDutyRate || '') + '"') +
     '<div class="actions" style="margin-top:16px"><button class="btn primary" type="submit">' + t('common.save') + '</button></div></form>' +
+    '<h2 class="sec" style="margin-top:14px">' + t('settings.backupTitle') + '</h2>' +
+    '<div class="note">' + t('settings.backupNote') + '</div>' +
+    '<div class="actions" style="margin-top:10px">' +
+    '<button type="button" class="btn primary" data-act="exportBackup">' + t('settings.exportBackup') + '</button>' +
+    '<label class="btn" style="text-align:center;cursor:pointer">' + t('settings.importBackup') + '<input type="file" id="importBackupFile" accept="application/json,.json" style="display:none"></label>' +
+    '</div>' +
     '<div class="note" style="margin-top:14px">' + t('settings.version') + ': Bello stock v' + APP_VERSION + '</div>');
 }
 function formResetConfirm() {
@@ -1743,7 +1804,14 @@ var ACTS = {
   supplierDebt: function (b) { formAmount(t('form.supplierInvoiceTitle'), 'supplierDebt', field('note', t('form.invoiceNotePh'), 'type="text" autocomplete="off"'), b.dataset.id); },
   settings: formSettings,
   reset: formResetConfirm,
-  confirmReset: function () { S = seed(); ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash'; save(); closeSheet(); applyLangAttrs(); render(); toast(t('reports.resetDone')); }
+  confirmReset: function () { S = seed(); ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash'; save(); closeSheet(); applyLangAttrs(); render(); toast(t('reports.resetDone')); },
+  exportBackup: function () { exportBackup(); },
+  confirmImport: function () {
+    if (!_pendingImport) return;
+    S = _pendingImport; _pendingImport = null;
+    ui.cart = []; ui.cust = ''; ui.paid = ''; ui.method = 'cash';
+    save(); closeSheet(); applyLangAttrs(); render(); toast(t('settings.importDone'));
+  }
 };
 document.addEventListener('click', function (e) {
   var b = e.target.closest('[data-act]'); if (!b || !ACTS[b.dataset.act]) return;
@@ -1758,6 +1826,13 @@ document.addEventListener('input', function (e) {
   else if (id === 'paid') { ui.paid = e.target.value; }
 });
 document.addEventListener('change', function (e) { if (e.target.id === 'custSel') ui.cust = e.target.value; });
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'importBackupFile') {
+    var f = e.target.files && e.target.files[0];
+    if (f) importBackupFromFile(f);
+    e.target.value = '';
+  }
+});
 document.addEventListener('change', function (e) {
   if (e.target.id === 'country') {
     var opt = e.target.selectedOptions[0], cur = opt && opt.getAttribute('data-cur');
